@@ -11,14 +11,11 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
-      
       - name: Redis streams service
-        uses: actions/redis@v1.8.0
+        uses: supercharge/redis-github-action@1.7.0
         with:
           url: redis://localhost:6379
           
