@@ -17,7 +17,10 @@ jobs:
       - name: Redis streams service
         uses: supercharge/redis-github-action@1.7.0
         with:
-          url: redis://localhost:6379
+          redis-port: 6379
+
+      - name: Git checkout
+        uses: actions/checkout@v3
           
       - name: Build proyect
         run: cargo build --verbose
