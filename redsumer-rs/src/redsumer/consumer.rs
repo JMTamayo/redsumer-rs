@@ -3,8 +3,8 @@ use std::fmt::Debug;
 
 use redis::{
     streams::{
-        StreamClaimOptions, StreamClaimReply, StreamId, StreamPendingCountReply, StreamReadOptions,
-        StreamReadReply,
+        StreamAutoClaimOptions, StreamAutoClaimReply, StreamId, StreamPendingCountReply,
+        StreamReadOptions, StreamReadReply,
     },
     Client, Commands, ErrorKind, RedisError,
 };
@@ -12,7 +12,17 @@ use redis::{
 use super::client::{get_redis_client, ClientCredentials};
 use super::types::{Id, RedsumerResult};
 
-/// A consumer implementation of *Redis Streams*.
+/// A consumer implementation of Redis Streams.
+///
+///  The consumer is responsible for consuming messages from a stream. It can read new messages,  pending messages or claim messages from other consumers according to their min idle time.
+///
+///  The consumer can be created using the [new](`RedsumerConsumer::new`) method. After creating a new consumer, it is possible to consume messages using the [consume](`RedsumerConsumer::consume`) method.
+///
+///   Also it is possible to verify if a specific message is still in consumer pending list using the [is_still_mine](`RedsumerConsumer::is_still_mine`) method.
+///
+///  The consumer can also ack a message using the [ack](`RedsumerConsumer::ack`) method. If the message is acked, it is removed from the consumer pending list.
+///
+///  Take a look at the [new](`RedsumerConsumer::new`) to know more about the consumer creation process and its parameters.
 #[derive(Debug, Clone)]
 pub struct RedsumerConsumer<'c> {
     client: Client,
@@ -79,6 +89,13 @@ impl<'c> RedsumerConsumer<'c> {
     }
 
     /// Build a new [`RedsumerConsumer`] instance.
+    ///
+    ///  Before creating a new consumer, the following validations are performed:
+    ///
+    ///  - If the *new_messages_count*, *pending_messages_count* and *claimed_messages_count* are all zero, a [`RedisError`] is returned.
+    /// - If the stream does not exist, a [`RedisError`] is returned: The stream must exist before creating a new consumer.
+    ///  - If the consumers group does not exist, it is created based on the *stream_name*, *group_name* and *since_id*. If the consumers group already exists, a warning is logged. If an error occurs during the creation process, a [`RedisError`] is returned.
+    ///
     /// # Arguments:
     /// - **credentials**: Optional [`ClientCredentials`] to authenticate in Redis.
     /// - **host**: Redis host.
@@ -94,26 +111,45 @@ impl<'c> RedsumerConsumer<'c> {
     /// - **claimed_messages_count**: Maximum number of claimed messages to read.
     /// - **block**: Max time to wait for new messages, given in milliseconds.
     ///
-    /// When a new instance of [`RedsumerConsumer`] is created, it is checked if the stream exists and if the consumers group exists. If the consumers group does not exist, it is created based on the *stream_name*, *group_name* and *since_id*.
+    ///  # Returns:
+    /// - A [`RedsumerResult`] containing a [`RedsumerConsumer`] instance. Otherwise, a [`RedisError`] is returned.
     ///
+    ///  # Example:
+    ///	Create a new [`RedsumerConsumer`] instance.
     /// ```rust,no_run
-    /// use redsumer::{RedsumerConsumer, ClientCredentials};
+    ///	use redsumer::{ClientCredentials, RedsumerConsumer};
     ///
-    /// let consumer = RedsumerConsumer::new(
-    ///     Some(ClientCredentials::new("user", "password")),
-    ///     "localhost",
-    ///     "6379",
-    ///     "0",
-    ///     "my_stream",
-    ///     "my_consumer_group",
-    ///     "0-0",
-    ///     "my_consumer",
-    ///     360000,
-    ///     10,
-    ///     10,
-    ///     10,
-    ///     5,
-    /// ).unwrap();
+    ///	let client_credentials = Some(ClientCredentials::new("user", "password"));
+    ///	let host = "localhost";
+    ///	let port = "6379";
+    ///	let db = "0";
+    ///	let stream_name = "my_stream";
+    ///	let group_name = "my_consumer_group";
+    ///	let consumer_name = "my_consumer";
+    ///	let since_id = "0-0";
+    /// let min_idle_time_milliseconds = 360000;
+    /// let new_messages_count = 10;
+    /// let pending_messages_count = 10;
+    /// let claimed_messages_count = 10;
+    /// let block = 5;
+    ///
+    /// let consumer: RedsumerConsumer = RedsumerConsumer::new(
+    /// 	client_credentials,
+    /// 	host,
+    /// 	port,
+    /// 	db,
+    /// 	stream_name,
+    /// 	group_name,
+    /// 	consumer_name,
+    /// 	since_id,
+    /// 	min_idle_time_milliseconds,
+    /// 	new_messages_count,
+    /// 	pending_messages_count,
+    /// 	claimed_messages_count,
+    /// 	block,
+    /// ).unwrap_or_else(|error| {
+    /// 	panic!("Error creating new RedsumerConsumer: {}", error);
+    /// });
     /// ```
     pub fn new(
         credentials: Option<ClientCredentials<'c>>,
@@ -130,6 +166,15 @@ impl<'c> RedsumerConsumer<'c> {
         claimed_messages_count: usize,
         block: u8,
     ) -> RedsumerResult<Self> {
+        let total_messages_to_read: usize =
+            new_messages_count + pending_messages_count + claimed_messages_count;
+        if total_messages_to_read.eq(&0) {
+            return Err(RedisError::from((
+                ErrorKind::TryAgain,
+                "Total messages to read must be grater than zero",
+            )));
+        }
+
         let client: Client = get_redis_client(credentials, host, port, db)?;
 
         if !client.get_connection()?.exists::<_, bool>(stream_name)? {
@@ -155,15 +200,6 @@ impl<'c> RedsumerConsumer<'c> {
                 }
             }
         };
-
-        let total_messages_to_read: usize =
-            new_messages_count + pending_messages_count + claimed_messages_count;
-        if total_messages_to_read.eq(&0) {
-            return Err(RedisError::from((
-                ErrorKind::TryAgain,
-                "Total messages to read must be grater than zero",
-            )));
-        }
 
         Ok(Self {
             client,
@@ -229,35 +265,29 @@ impl<'c> RedsumerConsumer<'c> {
         Ok(self
             .get_client()
             .get_connection()?
-            .xclaim_options::<_, _, _, _, _, StreamClaimReply>(
+            .xautoclaim_options::<_, _, _, _, _, StreamAutoClaimReply>(
                 self.get_stream_name(),
                 self.get_group_name(),
                 self.get_consumer_name(),
                 self.get_min_idle_time_milliseconds(),
-                &(self
-                    .get_client()
-                    .get_connection()?
-                    .xpending_count::<_, _, _, _, _, StreamPendingCountReply>(
-                        self.get_stream_name(),
-                        self.get_group_name(),
-                        self.get_since_id(),
-                        "+",
-                        self.get_claimed_messages_count(),
-                    )?
-                    .ids
-                    .iter()
-                    .map(|stream_pending_id| stream_pending_id.id.to_owned())
-                    .collect::<Vec<Id>>()),
-                StreamClaimOptions::default(),
+                self.get_since_id(),
+                StreamAutoClaimOptions::default().count(self.get_claimed_messages_count()),
             )?
-            .ids)
+            .claimed)
     }
 
-    /// Consume messages from *stream* according to the following steps:
+    /// Consume messages from stream according to the following steps:
+    ///
     /// 1. Consumer tries to get new messages. If new messages are found, they are returned as a result.
     /// 2. If new messages are not found, consumer tries to get pending messages. If pending messages are found, they are returned as a result.
     /// 3. If pending messages are not found, consumer tries to claim messages from other consumers according to *min_idle_time_milliseconds*. If claimed messages are found, they are returned as a result.
     /// 4. If new, pending or claimed messages are not found, an empty list is returned as a result.
+    ///
+    ///  # Arguments:
+    ///  *No arguments*
+    ///
+    ///  # Returns:
+    ///  - A [`RedsumerResult`] containing a list of [`StreamId`] if new, pending or claimed messages are found, otherwise an empty list is returned. If an error occurs, a [`RedisError`] is returned.
     pub async fn consume(&mut self) -> RedsumerResult<Vec<StreamId>> {
         debug!("Consuming messages from stream {}", self.get_stream_name());
 
@@ -297,8 +327,14 @@ impl<'c> RedsumerConsumer<'c> {
     }
 
     /// Verify if a specific message by *id* is still in consumer pending list.
+    ///
+    ///  If the message is not still in consumer pending list, it is recommended to verify if another consumer has claimed the message before trying to process it again.
+    ///
     /// # Arguments:
     /// - **id**: Stream message id.
+    ///
+    ///  # Returns:
+    ///  - A [`RedsumerResult`] containing a boolean value. If the message is still in consumer pending list, `true` is returned. Otherwise, `false` is returned. If an error occurs, a [`RedisError`] is returned.
     pub fn is_still_mine(&self, id: &Id) -> RedsumerResult<bool> {
         Ok(self
             .get_client()
@@ -317,8 +353,14 @@ impl<'c> RedsumerConsumer<'c> {
     }
 
     /// Ack a message by *id*.
+    ///
+    ///  If the message is acked, it is removed from the consumer pending list. Otherwise, it is recommended to verify if another consumer has claimed the message before trying to process it again.
+    ///  
     /// # Arguments:
     /// - **id**: Stream message id.
+    ///
+    /// # Returns:
+    ///  - A [`RedsumerResult`] containing a boolean value. If the message is acked, `true` is returned. Otherwise, `false` is returned. If an error occurs, a [`RedisError`] is returned.
     pub async fn ack(&self, id: &Id) -> RedsumerResult<bool> {
         Ok(self.get_client().get_connection()?.xack::<_, _, _, bool>(
             self.stream_name,
