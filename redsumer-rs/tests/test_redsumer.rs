@@ -32,7 +32,8 @@ pub mod test_redsumer {
         assert!(producer_res.is_ok());
         let producer: RedsumerProducer = producer_res.unwrap();
 
-        assert_eq!(format!("{:?}", producer), "RedsumerProducer { client: Client { connection_info: ConnectionInfo { addr: Tcp(\"localhost\", 6379), redis: RedisConnectionInfo { db: 0, username: None, password: None } } }, stream_name: \"test-producer-debug-and-clone\" }");
+        assert_eq!(format!("{:?}", producer), "RedsumerProducer { client: Client { connection_info: ConnectionInfo { addr: Tcp(\"localhost\", 6379), redis: RedisConnectionInfo { db: 0, username: None, password: None, protocol: RESP2 } } }, stream_name: \"test-producer-debug-and-clone\" }");
+
         assert_eq!(
             producer.clone().get_stream_name(),
             "test-producer-debug-and-clone"
@@ -79,7 +80,7 @@ pub mod test_redsumer {
         assert!(consumer_result.is_ok());
         let consumer: RedsumerConsumer = consumer_result.unwrap();
 
-        assert_eq!(format!("{:?}", consumer), "RedsumerConsumer { client: Client { connection_info: ConnectionInfo { addr: Tcp(\"localhost\", 6379), redis: RedisConnectionInfo { db: 0, username: None, password: None } } }, stream_name: \"test-consumer-debug-and-clone\", group_name: \"group-name\", consumer_name: \"consumer\", since_id: \"0-0\", min_idle_time_milliseconds: 1000, new_messages_count: 3, pending_messages_count: 2, claimed_messages_count: 1, block: 5 }");
+        assert_eq!(format!("{:?}", consumer), "RedsumerConsumer { client: Client { connection_info: ConnectionInfo { addr: Tcp(\"localhost\", 6379), redis: RedisConnectionInfo { db: 0, username: None, password: None, protocol: RESP2 } } }, stream_name: \"test-consumer-debug-and-clone\", group_name: \"group-name\", consumer_name: \"consumer\", since_id: \"0-0\", min_idle_time_milliseconds: 1000, new_messages_count: 3, pending_messages_count: 2, claimed_messages_count: 1, block: 5 }");
         assert_eq!(
             consumer.clone().get_stream_name(),
             "test-consumer-debug-and-clone"
@@ -156,7 +157,7 @@ pub mod test_redsumer {
     }
 
     #[tokio::test]
-    async fn test_consumer_consume() {
+    async fn test_consumer_happy_path() {
         let host: &str = "localhost";
         let port: &str = "6379";
         let db: &str = "0";
