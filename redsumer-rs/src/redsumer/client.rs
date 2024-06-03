@@ -1,7 +1,7 @@
 use redis::Client;
 
 #[allow(unused_imports)]
-use super::types::{RedsumerResult, RedsumerError};
+use super::types::{RedsumerError, RedsumerResult};
 
 /// To hold credentials to authenticate in *Redis*.
 ///
@@ -50,7 +50,7 @@ impl<'k> ClientCredentials<'k> {
 /// - **host**: Redis host.
 /// - **port**: Redis port.
 /// - **db**: Redis database.
-/// 
+///
 /// # Returns:
 /// - A [`RedsumerResult`] with a new instance of [`Client`] to connect to *Redis*. Otherwise, a [`RedsumerError`] is returned.
 pub fn get_redis_client(

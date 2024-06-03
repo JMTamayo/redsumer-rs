@@ -6,11 +6,13 @@ use redis::{
         StreamAutoClaimOptions, StreamAutoClaimReply, StreamId, StreamPendingCountReply,
         StreamReadOptions, StreamReadReply,
     },
-    Client, Commands, ErrorKind, RedisError,
+    Client, Commands, ErrorKind,
 };
 
 use super::client::{get_redis_client, ClientCredentials};
-use super::types::{Id, RedsumerResult};
+
+#[allow(unused_imports)]
+use super::types::{Id, RedsumerError, RedsumerResult};
 
 /// A consumer implementation of Redis Streams.
 ///
@@ -92,9 +94,9 @@ impl<'c> RedsumerConsumer<'c> {
     ///
     ///  Before creating a new consumer, the following validations are performed:
     ///
-    ///  - If the *new_messages_count*, *pending_messages_count* and *claimed_messages_count* are all zero, a [`RedisError`] is returned.
-    /// - If the stream does not exist, a [`RedisError`] is returned: The stream must exist before creating a new consumer.
-    ///  - If the consumers group does not exist, it is created based on the *stream_name*, *group_name* and *since_id*. If the consumers group already exists, a warning is logged. If an error occurs during the creation process, a [`RedisError`] is returned.
+    ///  - If the *new_messages_count*, *pending_messages_count* and *claimed_messages_count* are all zero, a [`RedsumerError`] is returned.
+    /// - If the stream does not exist, a [`RedsumerError`] is returned: The stream must exist before creating a new consumer.
+    ///  - If the consumers group does not exist, it is created based on the *stream_name*, *group_name* and *since_id*. If the consumers group already exists, a warning is logged. If an error occurs during the creation process, a [`RedsumerError`] is returned.
     ///
     /// # Arguments:
     /// - **credentials**: Optional [`ClientCredentials`] to authenticate in Redis.
@@ -112,7 +114,7 @@ impl<'c> RedsumerConsumer<'c> {
     /// - **block**: Max time to wait for new messages, given in milliseconds.
     ///
     ///  # Returns:
-    /// - A [`RedsumerResult`] containing a [`RedsumerConsumer`] instance. Otherwise, a [`RedisError`] is returned.
+    /// - A [`RedsumerResult`] containing a [`RedsumerConsumer`] instance. Otherwise, a [`RedsumerError`] is returned.
     ///
     ///  # Example:
     ///	Create a new [`RedsumerConsumer`] instance.
@@ -169,7 +171,7 @@ impl<'c> RedsumerConsumer<'c> {
         let total_messages_to_read: usize =
             new_messages_count + pending_messages_count + claimed_messages_count;
         if total_messages_to_read.eq(&0) {
-            return Err(RedisError::from((
+            return Err(RedsumerError::from((
                 ErrorKind::TryAgain,
                 "Total messages to read must be grater than zero",
             )));
@@ -178,7 +180,7 @@ impl<'c> RedsumerConsumer<'c> {
         let client: Client = get_redis_client(credentials, host, port, db)?;
 
         if !client.get_connection()?.exists::<_, bool>(stream_name)? {
-            return Err(RedisError::from((
+            return Err(RedsumerError::from((
                 ErrorKind::TryAgain,
                 "Stream does not exist",
             )));
@@ -287,7 +289,7 @@ impl<'c> RedsumerConsumer<'c> {
     ///  *No arguments*
     ///
     ///  # Returns:
-    ///  - A [`RedsumerResult`] containing a list of [`StreamId`] if new, pending or claimed messages are found, otherwise an empty list is returned. If an error occurs, a [`RedisError`] is returned.
+    ///  - A [`RedsumerResult`] containing a list of [`StreamId`] if new, pending or claimed messages are found, otherwise an empty list is returned. If an error occurs, a [`RedsumerError`] is returned.
     pub async fn consume(&mut self) -> RedsumerResult<Vec<StreamId>> {
         debug!("Consuming messages from stream {}", self.get_stream_name());
 
@@ -334,7 +336,7 @@ impl<'c> RedsumerConsumer<'c> {
     /// - **id**: Stream message id.
     ///
     ///  # Returns:
-    ///  - A [`RedsumerResult`] containing a boolean value. If the message is still in consumer pending list, `true` is returned. Otherwise, `false` is returned. If an error occurs, a [`RedisError`] is returned.
+    ///  - A [`RedsumerResult`] containing a boolean value. If the message is still in consumer pending list, `true` is returned. Otherwise, `false` is returned. If an error occurs, a [`RedsumerError`] is returned.
     pub fn is_still_mine(&self, id: &Id) -> RedsumerResult<bool> {
         Ok(self
             .get_client()
@@ -360,7 +362,7 @@ impl<'c> RedsumerConsumer<'c> {
     /// - **id**: Stream message id.
     ///
     /// # Returns:
-    ///  - A [`RedsumerResult`] containing a boolean value. If the message is acked, `true` is returned. Otherwise, `false` is returned. If an error occurs, a [`RedisError`] is returned.
+    ///  - A [`RedsumerResult`] containing a boolean value. If the message is acked, `true` is returned. Otherwise, `false` is returned. If an error occurs, a [`RedsumerError`] is returned.
     pub async fn ack(&self, id: &Id) -> RedsumerResult<bool> {
         Ok(self.get_client().get_connection()?.xack::<_, _, _, bool>(
             self.stream_name,
