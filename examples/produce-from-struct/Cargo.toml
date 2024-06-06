@@ -1,0 +1,18 @@
+[package]
+name = "produce-from-struct"
+description = "Example to produce message to a Redis stream from a struct instance"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = [
+    "Juan Manuel Tamayo <jmtamayog23@gmail.com>",
+]
+
+[dependencies]
+tokio = { version = "1.38.0", features = ["full"] }
+structmap = { version = "0.1.6" }
+structmap-derive = { version = "0.1.6" }
+uuid = { version = "1.8.0", features = ["v4"] }
+redsumer = { path = "../../redsumer-rs" }
+
+[workspace]
