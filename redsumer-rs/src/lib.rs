@@ -7,14 +7,14 @@
 //!
 //! ```ini
 //! [dependencies]
-//! redsumer = { git = "https://github.com/enerBit/redsumer-rs.git", package = "redsumer", version = "0.4.1" }
+//! redsumer = { git = "https://github.com/enerBit/redsumer-rs.git", package = "redsumer", version = "0.5.0" }
 //! ```
 //!
 //! You can depend on it via cargo by adding the following dependency to your `Cargo.toml` file:
 //!
 //! ```ini
 //! [dependencies]
-//! redsumer = { version = "0.4.1" }
+//! redsumer = { version = "0.5.0" }
 //! ```
 //!
 //! ## Basic Usage
