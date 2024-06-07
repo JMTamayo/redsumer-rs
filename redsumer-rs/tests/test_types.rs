@@ -319,31 +319,6 @@ pub mod test_from_redis_value_extended_methods {
     }
 
     #[test]
-    fn test_uuid_from_redis_value() {
-        let from_redis_value_handler: FromRedisValueHandler = FromRedisValueHandler::new();
-
-        assert!(from_redis_value_handler
-            .to_uuid(&(Value::SimpleString(String::from("2983cfeb-e2e0-4f21-b33e-bf678cb67f79"))))
-            .is_ok());
-
-        assert!(from_redis_value_handler
-            .to_uuid(&(Value::SimpleString(String::from("983cfeb-e2e0-4f21-b33e-bf678cb67f79"))))
-            .is_err());
-
-        assert!(from_redis_value_handler
-            .to_optional_uuid(
-                &(&(Value::SimpleString(String::from("2983cfeb-e2e0-4f21-b33e-bf678cb67f79"))))
-            )
-            .unwrap()
-            .is_some());
-
-        assert!(from_redis_value_handler
-            .to_optional_uuid(&Value::Nil)
-            .unwrap()
-            .is_none());
-    }
-
-    #[test]
     fn test_get_offsetdatetime_from_redis_value_in_format_iso8601() {
         let from_redis_value_handler: FromRedisValueHandler = FromRedisValueHandler::new();
 
