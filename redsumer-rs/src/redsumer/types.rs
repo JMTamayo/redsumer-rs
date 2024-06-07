@@ -3,10 +3,11 @@ use redis::{from_redis_value, ErrorKind, RedisError, Value};
 use serde::de::DeserializeOwned;
 use serde_json::from_str as json_from_str;
 use std::fmt::Debug;
-use std::str::FromStr;
 use time::format_description::well_known::{Iso8601, Rfc2822, Rfc3339};
 use time::parsing::Parsable;
 use time::{Date, OffsetDateTime};
+
+#[cfg(feature = "uuid")]
 use uuid::Uuid;
 
 /// Error type for *redsumer* operations, it's an alias for [`RedisError`].
@@ -17,6 +18,46 @@ pub type RedsumerResult<T> = Result<T, RedsumerError>;
 
 /// Stream message identifier.
 pub type Id = String;
+
+pub trait FromRedisValueExtended {
+    fn from_redis_value(value: &redis::Value) -> RedsumerResult<Self>
+    where
+        Self: Sized;
+}
+
+#[cfg(feature = "uuid")]
+impl FromRedisValueExtended for Uuid {
+    fn from_redis_value(v: &Value) -> RedsumerResult<Self>
+    where
+        Self: Sized,
+    {
+        match Uuid::parse_str(&from_redis_value::<String>(v)?) {
+            Ok(uuid) => Ok(uuid),
+            Err(error) => Err(RedisError::from((
+                ErrorKind::TypeError,
+                "Response was of incompatible type",
+                format!(
+                    "Value {:?} is not parsable as Uuid: {:?}",
+                    v,
+                    &error.to_string(),
+                ),
+            ))),
+        }
+    }
+}
+
+#[cfg(feature = "uuid")]
+impl FromRedisValueExtended for Option<Uuid> {
+    fn from_redis_value(v: &Value) -> RedsumerResult<Self>
+    where
+        Self: Sized,
+    {
+        match v {
+            Value::Nil => Ok(None),
+            _ => Ok(Some(Uuid::from_redis_value(v)?)),
+        }
+    }
+}
 
 /// Handler to unwrap [`Value`] as specific types.
 pub struct FromRedisValueHandler;
@@ -243,31 +284,6 @@ impl FromRedisValueHandler {
             Ok(None)
         } else {
             Ok(Some(self.to_bool(v)?))
-        }
-    }
-
-    /// Unwrap [`Value`] as a [`Uuid`].
-    pub fn to_uuid(&self, v: &Value) -> RedsumerResult<Uuid> {
-        match Uuid::from_str(&self.to_string(v)?) {
-            Ok(uuid) => Ok(uuid),
-            Err(error) => Err(RedisError::from((
-                ErrorKind::TypeError,
-                "Response was of incompatible type",
-                format!(
-                    "Value {:?} is not parsable as Uuid: {:?}",
-                    v,
-                    &error.to_string(),
-                ),
-            ))),
-        }
-    }
-
-    /// Unwrap [`Value`] as an optional [`Uuid`].
-    pub fn to_optional_uuid(&self, v: &Value) -> RedsumerResult<Option<Uuid>> {
-        if *v == Value::Nil {
-            Ok(None)
-        } else {
-            Ok(Some(self.to_uuid(v)?))
         }
     }
 
