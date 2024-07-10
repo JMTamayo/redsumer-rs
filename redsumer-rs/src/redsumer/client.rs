@@ -126,7 +126,7 @@ pub fn ping<C>(c: &mut C) -> RedsumerResult<()>
 where
     C: ConnectionLike,
 {
-    match redis::cmd("PING").query::<String>(c).is_ok() {
+    match c.check_connection() {
         true => Ok(()),
         false => Err(RedisError::from((
             ErrorKind::ClientError,
@@ -138,7 +138,7 @@ where
 
 #[cfg(test)]
 pub mod test_client {
-    use redis_test::{MockCmd, MockRedisConnection};
+    use redis::{RedisResult, Value};
 
     use super::*;
 
@@ -238,31 +238,96 @@ pub mod test_client {
 
     #[test]
     fn test_ping_ok() {
-        // Create a mock connection:
-        let mut conn: MockRedisConnection =
-            MockRedisConnection::new(vec![MockCmd::new::<_, String>(
-                redis::cmd("PING"),
-                Ok("1".to_string()),
-            )]);
+        // Create a type to mock the Redis connection:
+        struct MockConn;
 
-        // Verify the server availability:
+        // Implement the ConnectionLike trait for the MockConn type:
+        impl ConnectionLike for MockConn {
+            fn req_packed_command(&mut self, _cmd: &[u8]) -> RedisResult<Value> {
+                Err(RedisError::from((
+                    ErrorKind::TryAgain,
+                    "Unimplemented method for MockConn",
+                )))
+            }
+
+            fn req_packed_commands(
+                &mut self,
+                _cmd: &[u8],
+                _offset: usize,
+                _count: usize,
+            ) -> RedisResult<Vec<Value>> {
+                Err(RedisError::from((
+                    ErrorKind::TryAgain,
+                    "Unimplemented method for MockConn",
+                )))
+            }
+
+            fn get_db(&self) -> i64 {
+                0
+            }
+
+            fn check_connection(&mut self) -> bool {
+                true
+            }
+
+            fn is_open(&self) -> bool {
+                false
+            }
+        }
+
+        // Create a mock connection:
+        let mut conn: MockConn = MockConn;
+
+        // Verify the connection to the server:
         assert!(ping(&mut conn).is_ok());
     }
 
     #[test]
     fn test_ping_error() {
-        // Create a mock connection:
-        let mut conn: MockRedisConnection =
-            MockRedisConnection::new(vec![MockCmd::new::<_, String>(
-                redis::cmd("PING"),
-                Err(RedisError::from((
-                    ErrorKind::ExtensionError,
-                    "Connection Verification Error",
-                ))),
-            )]);
+        // Create a type to mock the Redis connection:
+        struct MockConn;
 
-        // Verify the server availability:
-        assert!(ping(&mut conn).is_err());
+        // Implement the ConnectionLike trait for the MockConn type:
+        impl ConnectionLike for MockConn {
+            fn req_packed_command(&mut self, _cmd: &[u8]) -> RedisResult<Value> {
+                Err(RedisError::from((
+                    ErrorKind::TryAgain,
+                    "Unimplemented method for MockConn",
+                )))
+            }
+
+            fn req_packed_commands(
+                &mut self,
+                _cmd: &[u8],
+                _offset: usize,
+                _count: usize,
+            ) -> RedisResult<Vec<Value>> {
+                Err(RedisError::from((
+                    ErrorKind::TryAgain,
+                    "Unimplemented method for MockConn",
+                )))
+            }
+
+            fn get_db(&self) -> i64 {
+                0
+            }
+
+            fn check_connection(&mut self) -> bool {
+                false
+            }
+
+            fn is_open(&self) -> bool {
+                false
+            }
+        }
+
+        // Create a mock connection:
+        let mut conn: MockConn = MockConn;
+
+        // Verify the connection to the server:
+        let result: RedsumerResult<()> = ping(&mut conn);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Connection Verification Error - ClientError: The connection to the Redis server could not be verified. Please verify the client configuration or server availability");
     }
 }
 
