@@ -8,7 +8,8 @@ use super::types::RedsumerResult;
 #[derive(Clone)]
 /// To hold credentials to authenticate in *Redis*.
 ///
-/// This credentials are used to authenticate in *Redis* when server requires it. If server does not require it, you set it to `None`.
+/// These credentials are used to authenticate in *Redis* when server requires it.
+/// If a server does not require it, you set it to `None`.
 pub struct ClientCredentials<'k> {
     user: &'k str,
     password: &'k str,
@@ -43,14 +44,14 @@ impl<'k> ClientCredentials<'k> {
     }
 }
 
-pub struct RedisClientArgs<'k> {
+pub struct ClientArgs<'k> {
     credentials: Option<ClientCredentials<'k>>,
     host: &'k str,
     port: Option<u16>,
     db: Option<u8>,
 }
 
-impl<'k> RedisClientArgs<'k> {
+impl<'k> ClientArgs<'k> {
     pub fn get_credentials(&self) -> &Option<ClientCredentials<'k>> {
         &self.credentials
     }
@@ -82,8 +83,8 @@ impl<'k> RedisClientArgs<'k> {
         self
     }
 
-    pub fn new(host: &'k str) -> RedisClientArgs<'k> {
-        RedisClientArgs {
+    pub fn new(host: &'k str) -> ClientArgs<'k> {
+        ClientArgs {
             credentials: None,
             host,
             port: None,
@@ -96,7 +97,7 @@ pub trait RedisClientBuilder {
     fn build(&self) -> RedsumerResult<Client>;
 }
 
-impl<'k> RedisClientBuilder for RedisClientArgs<'k> {
+impl<'k> RedisClientBuilder for ClientArgs<'k> {
     fn build(&self) -> RedsumerResult<Client> {
         let addr: ConnectionAddr =
             ConnectionAddr::Tcp(String::from(self.get_host()), self.get_port());
@@ -130,9 +131,7 @@ where
         false => Err(RedisError::from((
             ErrorKind::ClientError,
             "Connection Verification Error",
-            format!(
-				"The connection to the Redis server could not be verified. Please verify the client configuration or server availability"
-			),
+            "The connection to the Redis server could not be verified. Please verify the client configuration or server availability".to_string(),
         ))),
     }
 }
@@ -152,7 +151,7 @@ pub mod test_client {
         // Create a new instance of ClientCredentials:
         let credentials: ClientCredentials = ClientCredentials::new(user, password);
 
-        // Check user and password are correct:
+        // Verify if the user and password are correct:
         assert_eq!(credentials.get_user(), user);
         assert_eq!(credentials.get_password(), password);
     }
@@ -162,10 +161,10 @@ pub mod test_client {
         // Define the host to connect to Redis:
         let host: &str = "localhost";
 
-        // Create a new instance of RedisClientArgs with default port and db:
-        let mut args: RedisClientArgs = RedisClientArgs::new(host);
+        // Create a new instance of ClientArgs with default port and db:
+        let mut args: ClientArgs = ClientArgs::new(host);
 
-        // Check host is correct:
+        // Verify if the args are correct:
         assert_eq!(args.get_host(), host);
         assert_eq!(args.get_port(), 6379);
         assert_eq!(args.get_db(), 0);
@@ -177,10 +176,10 @@ pub mod test_client {
         // Create a new instance of ClientCredentials:
         let credentials: ClientCredentials = ClientCredentials::new(user, password);
 
-        // Set credentials in RedisClientArgs:
+        // Set credentials in ClientArgs:
         args.set_credentials(credentials);
 
-        // Check credentials are correct:
+        // Verify if the credentials are correct:
         assert_eq!(args.get_credentials().to_owned().unwrap().get_user(), user);
         assert_eq!(
             args.get_credentials().to_owned().unwrap().get_password(),
@@ -190,19 +189,19 @@ pub mod test_client {
         // Define the port to connect to Redis:
         let port: u16 = 6380;
 
-        // Set port in RedisClientArgs:
+        // Set port in ClientArgs:
         args.set_port(port);
 
-        // Check port is correct:
+        // Check if the port is correct:
         assert_eq!(args.get_port(), port);
 
         // Define the database to connect to Redis:
         let db: u8 = 1;
 
-        // Set database in RedisClientArgs:
+        // Set database in ClientArgs:
         args.set_db(db);
 
-        // Check database is correct:
+        // Verify if the database is correct:
         assert_eq!(args.get_db(), db.into());
     }
 
@@ -211,13 +210,13 @@ pub mod test_client {
         // Define the host to connect to Redis:
         let host: &str = "localhost";
 
-        // Create a new instance of RedisClientArgs with default port and db:
-        let mut args: RedisClientArgs = RedisClientArgs::new(host);
+        // Create a new instance of ClientArgs with default port and db:
+        let mut args: ClientArgs = ClientArgs::new(host);
 
         // Build a new instance of Client:
         let client_result: RedsumerResult<Client> = args.build();
 
-        // Check client is correct:
+        // Verify if a client is correct:
         assert!(client_result.is_ok());
 
         // Define the user and password to authenticate in Redis:
@@ -227,13 +226,13 @@ pub mod test_client {
         // Create a new instance of ClientCredentials:
         let credentials: ClientCredentials = ClientCredentials::new(user, password);
 
-        // Set credentials in RedisClientArgs:
+        // Set credentials in ClientArgs:
         args.set_credentials(credentials);
 
         // Build a new instance of Client:
         let client_result: RedsumerResult<Client> = args.build();
 
-        // Check client is correct:
+        // Verify if the client is correct:
         assert!(client_result.is_ok());
     }
 
@@ -246,7 +245,7 @@ pub mod test_client {
                 Ok("1".to_string()),
             )]);
 
-        // Check server availability:
+        // Verify the server availability:
         assert!(ping(&mut conn).is_ok());
     }
 
@@ -262,7 +261,7 @@ pub mod test_client {
                 ))),
             )]);
 
-        // Check server availability:
+        // Verify the server availability:
         assert!(ping(&mut conn).is_err());
     }
 }
