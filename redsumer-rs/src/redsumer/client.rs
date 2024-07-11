@@ -138,7 +138,7 @@ where
 
 #[cfg(test)]
 pub mod test_client {
-    use redis::{RedisResult, Value};
+    use redis_test::MockRedisConnection;
 
     use super::*;
 
@@ -238,45 +238,8 @@ pub mod test_client {
 
     #[test]
     fn test_ping_ok() {
-        // Create a type to mock the Redis connection:
-        struct MockConn;
-
-        // Implement the ConnectionLike trait for the MockConn type:
-        impl ConnectionLike for MockConn {
-            fn req_packed_command(&mut self, _cmd: &[u8]) -> RedisResult<Value> {
-                Err(RedisError::from((
-                    ErrorKind::TryAgain,
-                    "Unimplemented method for MockConn",
-                )))
-            }
-
-            fn req_packed_commands(
-                &mut self,
-                _cmd: &[u8],
-                _offset: usize,
-                _count: usize,
-            ) -> RedisResult<Vec<Value>> {
-                Err(RedisError::from((
-                    ErrorKind::TryAgain,
-                    "Unimplemented method for MockConn",
-                )))
-            }
-
-            fn get_db(&self) -> i64 {
-                0
-            }
-
-            fn check_connection(&mut self) -> bool {
-                true
-            }
-
-            fn is_open(&self) -> bool {
-                false
-            }
-        }
-
         // Create a mock connection:
-        let mut conn: MockConn = MockConn;
+        let mut conn: MockRedisConnection = MockRedisConnection::new(vec![]);
 
         // Verify the connection to the server:
         assert!(ping(&mut conn).is_ok());
@@ -284,48 +247,11 @@ pub mod test_client {
 
     #[test]
     fn test_ping_error() {
-        // Create a type to mock the Redis connection:
-        struct MockConn;
-
-        // Implement the ConnectionLike trait for the MockConn type:
-        impl ConnectionLike for MockConn {
-            fn req_packed_command(&mut self, _cmd: &[u8]) -> RedisResult<Value> {
-                Err(RedisError::from((
-                    ErrorKind::TryAgain,
-                    "Unimplemented method for MockConn",
-                )))
-            }
-
-            fn req_packed_commands(
-                &mut self,
-                _cmd: &[u8],
-                _offset: usize,
-                _count: usize,
-            ) -> RedisResult<Vec<Value>> {
-                Err(RedisError::from((
-                    ErrorKind::TryAgain,
-                    "Unimplemented method for MockConn",
-                )))
-            }
-
-            fn get_db(&self) -> i64 {
-                0
-            }
-
-            fn check_connection(&mut self) -> bool {
-                false
-            }
-
-            fn is_open(&self) -> bool {
-                false
-            }
-        }
-
-        // Create a mock connection:
-        let mut conn: MockConn = MockConn;
+        // Create a Redis client:
+        let mut client: Client = ClientArgs::new("remotehost").build().unwrap();
 
         // Verify the connection to the server:
-        let result: RedsumerResult<()> = ping(&mut conn);
+        let result: RedsumerResult<()> = ping(&mut client);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "Connection Verification Error - ClientError: The connection to the Redis server could not be verified. Please verify the client configuration or server availability");
     }
