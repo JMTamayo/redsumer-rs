@@ -55,7 +55,7 @@ impl<'k> ClientCredentials<'k> {
     }
 }
 
-/// Define  the arguments to create a new instance of [`Client`].
+/// Define  the necessary arguments to create a new instance of [`Client`].
 ///
 /// Take a look at the following supported connection URL format to infer the client arguments:
 /// `redis://[<user>][:<password>@]<host>:<port>/<db>`
