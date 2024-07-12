@@ -59,8 +59,8 @@ impl<'k> ClientCredentials<'k> {
 ///
 /// Take a look at the following supported connection URL format to infer the client arguments:
 /// `redis://[<user>][:<password>@]<host>:<port>/<db>`
-/// 
-/// User and password are optional. If you don't need to authenticate in *Redis*, you can ignore them. Port and db are mandatory for the connection. 
+///
+/// User and password are optional. If you don't need to authenticate in *Redis*, you can ignore them. Port and db are mandatory for the connection.
 #[derive(Clone)]
 pub struct ClientArgs<'a> {
     credentials: Option<ClientCredentials<'a>>,
@@ -93,8 +93,8 @@ impl<'a> ClientArgs<'a> {
     }
 
     /// Get *port*.
-	/// 
-	/// If the port is not defined, the default value is 6379.
+    ///
+    /// If the port is not defined, the default value is 6379.
     ///
     /// # Arguments:
     /// - No arguments.
@@ -106,8 +106,8 @@ impl<'a> ClientArgs<'a> {
     }
 
     /// Get *db*.
-	/// 
-	/// If the database is not defined, the default value is 0.
+    ///
+    /// If the database is not defined, the default value is 0.
     ///
     /// # Arguments:
     /// - No arguments.
@@ -155,8 +155,8 @@ impl<'a> ClientArgs<'a> {
     }
 
     /// Create a new instance of [`ClientArgs`].
-	/// 
-	/// This function is used to create a new instance of [`ClientArgs`] with default port (6379) and db (0). If you need to change the default values, you can use the methods [set_port](`ClientArgs::set_port`) and [set_db](`ClientArgs::set_db`). Nullable credentials are used by default, you can set them using the method [set_credentials](`ClientArgs::set_credentials`).
+    ///
+    /// This function is used to create a new instance of [`ClientArgs`] with default port (6379) and db (0). If you need to change the default values, you can use the methods [set_port](`ClientArgs::set_port`) and [set_db](`ClientArgs::set_db`). Nullable credentials are used by default, you can set them using the method [set_credentials](`ClientArgs::set_credentials`).
     ///
     /// # Arguments:
     /// - **host**: The host to connect to Redis.
