@@ -77,7 +77,7 @@ impl<'a> ClientArgs<'a> {
     ///
     /// # Returns:
     /// A reference to the credentials to authenticate in Redis.
-    pub fn get_credentials(&self) -> &Option<ClientCredentials<'a>> {
+    fn get_credentials(&self) -> &Option<ClientCredentials<'a>> {
         &self.credentials
     }
 
@@ -88,7 +88,7 @@ impl<'a> ClientArgs<'a> {
     ///
     /// # Returns:
     /// A reference to the host to connect to Redis.
-    pub fn get_host(&self) -> &str {
+    fn get_host(&self) -> &str {
         self.host
     }
 
@@ -101,7 +101,7 @@ impl<'a> ClientArgs<'a> {
     ///
     /// # Returns:
     /// The port to connect to Redis.
-    pub fn get_port(&self) -> u16 {
+    fn get_port(&self) -> u16 {
         self.port.unwrap_or(6379)
     }
 
@@ -114,7 +114,7 @@ impl<'a> ClientArgs<'a> {
     ///
     /// # Returns:
     /// The database to connect to Redis.
-    pub fn get_db(&self) -> i64 {
+    fn get_db(&self) -> i64 {
         self.db.unwrap_or(0) as i64
     }
 
