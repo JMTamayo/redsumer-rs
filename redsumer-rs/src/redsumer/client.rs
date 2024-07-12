@@ -3,11 +3,12 @@ use redis::{
     RedisError,
 };
 
-use super::types::RedsumerResult;
+#[allow(unused_imports)]
+use super::types::{RedsumerError, RedsumerResult};
 
-/// To hold credentials to authenticate in *Redis*.
+/// To hold credentials to authenticate in Redis.
 ///
-/// These credentials are used to authenticate in *Redis* when server requires it.
+/// These credentials are used to authenticate in Redis when server requires it.
 #[derive(Clone)]
 pub struct ClientCredentials<'k> {
     user: &'k str,
@@ -21,7 +22,7 @@ impl<'k> ClientCredentials<'k> {
     /// - No arguments.
     ///
     /// # Returns:
-    /// A reference to the user to authenticate in Redis.
+    /// The *user* to authenticate in Redis.
     fn get_user(&self) -> &str {
         self.user
     }
@@ -32,7 +33,7 @@ impl<'k> ClientCredentials<'k> {
     /// - No arguments.
     ///
     /// # Returns:
-    /// A reference to the password to authenticate in Redis.
+    /// The *password* to authenticate in Redis.
     fn get_password(&self) -> &str {
         self.password
     }
@@ -60,7 +61,7 @@ impl<'k> ClientCredentials<'k> {
 /// Take a look at the following supported connection URL format to infer the client arguments:
 /// `redis://[<user>][:<password>@]<host>:<port>/<db>`
 ///
-/// User and password are optional. If you don't need to authenticate in *Redis*, you can ignore them. Port and db are mandatory for the connection.
+/// *User* and *password* are optional. If you don't need to authenticate in *Redis*, you can ignore them. *Port* and *db* are mandatory for the connection.
 #[derive(Clone)]
 pub struct ClientArgs<'a> {
     credentials: Option<ClientCredentials<'a>>,
@@ -76,7 +77,7 @@ impl<'a> ClientArgs<'a> {
     /// - No arguments.
     ///
     /// # Returns:
-    /// A reference to the credentials to authenticate in Redis.
+    /// The *credentials* to authenticate in Redis.
     fn get_credentials(&self) -> &Option<ClientCredentials<'a>> {
         &self.credentials
     }
@@ -87,7 +88,7 @@ impl<'a> ClientArgs<'a> {
     /// - No arguments.
     ///
     /// # Returns:
-    /// A reference to the host to connect to Redis.
+    /// The *host* to connect to Redis.
     fn get_host(&self) -> &str {
         self.host
     }
@@ -100,7 +101,7 @@ impl<'a> ClientArgs<'a> {
     /// - No arguments.
     ///
     /// # Returns:
-    /// The port to connect to Redis.
+    /// The *port* to connect to Redis.
     fn get_port(&self) -> u16 {
         self.port.unwrap_or(6379)
     }
@@ -124,7 +125,7 @@ impl<'a> ClientArgs<'a> {
     /// - **credentials**: The credentials to authenticate in Redis.
     ///
     /// # Returns:
-    /// A mutable reference to itself.
+    /// Itself with the *credentials* set.
     pub fn set_credentials(&mut self, credentials: ClientCredentials<'a>) -> &mut Self {
         self.credentials = Some(credentials);
         self
@@ -136,7 +137,7 @@ impl<'a> ClientArgs<'a> {
     /// - **port**: The port to connect to Redis.
     ///
     /// # Returns:
-    /// A mutable reference to itself.
+    /// Itself with the *port* set.
     pub fn set_port(&mut self, port: u16) -> &mut Self {
         self.port = Some(port);
         self
@@ -148,7 +149,7 @@ impl<'a> ClientArgs<'a> {
     /// - **db**: The database to connect to Redis.
     ///
     /// # Returns:
-    /// A mutable reference to itself.
+    /// Itself with the *database* set.
     pub fn set_db(&mut self, db: u8) -> &mut Self {
         self.db = Some(db);
         self
@@ -156,7 +157,7 @@ impl<'a> ClientArgs<'a> {
 
     /// Create a new instance of [`ClientArgs`].
     ///
-    /// This function is used to create a new instance of [`ClientArgs`] with default port (6379) and db (0). If you need to change the default values, you can use the methods [set_port](`ClientArgs::set_port`) and [set_db](`ClientArgs::set_db`). Nullable credentials are used by default, you can set them using the method [set_credentials](`ClientArgs::set_credentials`).
+    /// This function is used to create a new instance of [`ClientArgs`] with default *port* and *db*. If you need to change the default values, you can use the methods [set_port](`ClientArgs::set_port`) and [set_db](`ClientArgs::set_db`). Nullable *credentials* are used by default, you can set them using the method [set_credentials](`ClientArgs::set_credentials`).
     ///
     /// # Arguments:
     /// - **host**: The host to connect to Redis.
@@ -210,12 +211,12 @@ impl<'a> RedisClientBuilder for ClientArgs<'a> {
     }
 }
 
-/// Verify the connection to the *Redis* server.
+/// Verify the connection to the Redis server.
 ///
-/// This function is used to verify if the connection to the *Redis* server is working properly.
+/// This function is used to verify if the connection to the Redis server is working properly.
 ///
 /// # Arguments:
-/// - **c**: A mutable reference to a connection to *Redis*, which implements the [`ConnectionLike`] trait.
+/// - **c**: A reference to a connection to Redis, which implements the [`ConnectionLike`] trait.
 ///
 /// # Returns:
 /// A [`RedsumerResult`] with `()` if the connection is working properly. Otherwise, a [`RedsumerError`] is returned.
