@@ -18,7 +18,7 @@ impl<'d> ProducerConfig<'d> {
     /// - No arguments.
     ///
     /// # Returns:
-    /// A reference of the stream name.
+    /// The stream name.
     pub fn get_stream_name(&self) -> &str {
         self.stream_name
     }
@@ -35,7 +35,7 @@ impl<'d> ProducerConfig<'d> {
     }
 }
 
-/// A producer implementation of *Redis Streams*.
+/// A producer implementation of Redis Streams.
 ///
 ///  This struct is responsible for producing messages in a specific stream.
 #[derive(Clone)]
@@ -51,7 +51,7 @@ impl<'p> Producer<'p> {
     /// - No arguments.
     ///
     /// # Returns:
-    /// A reference to the [`Client`] parameters.
+    /// The [`Client`] parameters.
     fn get_client(&self) -> &Client {
         &self.client
     }
@@ -62,7 +62,7 @@ impl<'p> Producer<'p> {
     /// - No arguments.
     ///
     /// # Returns:
-    /// A reference to the [`ProducerConfig`] parameters.
+    /// [`ProducerConfig`] parameters.
     pub fn get_config(&self) -> &ProducerConfig {
         &self.config
     }
@@ -71,7 +71,7 @@ impl<'p> Producer<'p> {
     ///
     /// Before creating a new producer, the following validations are performed:
     ///
-    /// - If connection parameters are invalid, a [`RedsumerError`] is returned.
+    /// - If client parameters are invalid, a [`RedsumerError`] is returned.
     /// - If connection to Redis server can not be established, a [`RedsumerError`] is returned.
     ///
     /// # Arguments:
@@ -105,7 +105,7 @@ impl<'p> Producer<'p> {
 
     /// Produce a new message in stream.
     ///
-    ///  This method produces a new message in the stream setting the *ID* as "*", which means that Redis will generate a new *ID* for the message automatically with the current timestamp.
+    ///  This method produces a new message in the stream setting the *Id* as "*", which means that Redis will generate a new *Id* for the message automatically with the current timestamp.
     ///
     ///  If stream does not exist, it will be created.
     ///
