@@ -5,11 +5,10 @@ use redis::{
 
 use super::types::RedsumerResult;
 
-#[derive(Clone)]
 /// To hold credentials to authenticate in *Redis*.
 ///
 /// These credentials are used to authenticate in *Redis* when server requires it.
-/// If a server does not require it, you set it to `None`.
+#[derive(Clone)]
 pub struct ClientCredentials<'k> {
     user: &'k str,
     password: &'k str,
@@ -17,11 +16,23 @@ pub struct ClientCredentials<'k> {
 
 impl<'k> ClientCredentials<'k> {
     /// Get *user*
+    ///
+    /// # Arguments:
+    /// - No arguments.
+    ///
+    /// # Returns:
+    /// A reference to the user to authenticate in Redis.
     fn get_user(&self) -> &str {
         self.user
     }
 
     /// Get *password*
+    ///
+    /// # Arguments:
+    /// - No arguments.
+    ///
+    /// # Returns:
+    /// A reference to the password to authenticate in Redis.
     fn get_password(&self) -> &str {
         self.password
     }
@@ -29,8 +40,8 @@ impl<'k> ClientCredentials<'k> {
     /// Build a new instance of [`ClientCredentials`].
     ///
     /// # Arguments:
-    /// - **user**: Redis user.
-    /// - **password**: Redis password.
+    /// - **user**: The username to authenticate in Redis.
+    /// - **password**: The password to authenticate in Redis.
     ///
     /// # Returns:
     /// A new instance of [`ClientCredentials`].
@@ -44,46 +55,115 @@ impl<'k> ClientCredentials<'k> {
     }
 }
 
-pub struct ClientArgs<'k> {
-    credentials: Option<ClientCredentials<'k>>,
-    host: &'k str,
+/// Define  the arguments to create a new instance of [`Client`].
+///
+/// Take a look at the following supported connection URL format to infer the client arguments:
+/// `redis://[<user>][:<password>@]<host>:<port>/<db>`
+/// 
+/// User and password are optional. If you don't need to authenticate in *Redis*, you can ignore them. Port and db are mandatory for the connection. 
+#[derive(Clone)]
+pub struct ClientArgs<'a> {
+    credentials: Option<ClientCredentials<'a>>,
+    host: &'a str,
     port: Option<u16>,
     db: Option<u8>,
 }
 
-impl<'k> ClientArgs<'k> {
-    pub fn get_credentials(&self) -> &Option<ClientCredentials<'k>> {
+impl<'a> ClientArgs<'a> {
+    /// Get *credentials*.
+    ///
+    /// # Arguments:
+    /// - No arguments.
+    ///
+    /// # Returns:
+    /// A reference to the credentials to authenticate in Redis.
+    pub fn get_credentials(&self) -> &Option<ClientCredentials<'a>> {
         &self.credentials
     }
 
+    /// Get *host*.
+    ///
+    /// # Arguments:
+    /// - No arguments.
+    ///
+    /// # Returns:
+    /// A reference to the host to connect to Redis.
     pub fn get_host(&self) -> &str {
         self.host
     }
 
+    /// Get *port*.
+	/// 
+	/// If the port is not defined, the default value is 6379.
+    ///
+    /// # Arguments:
+    /// - No arguments.
+    ///
+    /// # Returns:
+    /// The port to connect to Redis.
     pub fn get_port(&self) -> u16 {
         self.port.unwrap_or(6379)
     }
 
+    /// Get *db*.
+	/// 
+	/// If the database is not defined, the default value is 0.
+    ///
+    /// # Arguments:
+    /// - No arguments.
+    ///
+    /// # Returns:
+    /// The database to connect to Redis.
     pub fn get_db(&self) -> i64 {
         self.db.unwrap_or(0) as i64
     }
 
-    pub fn set_credentials(&mut self, credentials: ClientCredentials<'k>) -> &mut Self {
+    /// Set *credentials*.
+    ///
+    /// # Arguments:
+    /// - **credentials**: The credentials to authenticate in Redis.
+    ///
+    /// # Returns:
+    /// A mutable reference to itself.
+    pub fn set_credentials(&mut self, credentials: ClientCredentials<'a>) -> &mut Self {
         self.credentials = Some(credentials);
         self
     }
 
+    /// Set *port*.
+    ///
+    /// # Arguments:
+    /// - **port**: The port to connect to Redis.
+    ///
+    /// # Returns:
+    /// A mutable reference to itself.
     pub fn set_port(&mut self, port: u16) -> &mut Self {
         self.port = Some(port);
         self
     }
 
+    /// Set *db*.
+    ///
+    /// # Arguments:
+    /// - **db**: The database to connect to Redis.
+    ///
+    /// # Returns:
+    /// A mutable reference to itself.
     pub fn set_db(&mut self, db: u8) -> &mut Self {
         self.db = Some(db);
         self
     }
 
-    pub fn new(host: &'k str) -> ClientArgs<'k> {
+    /// Create a new instance of [`ClientArgs`].
+	/// 
+	/// This function is used to create a new instance of [`ClientArgs`] with default port (6379) and db (0). If you need to change the default values, you can use the methods [set_port](`ClientArgs::set_port`) and [set_db](`ClientArgs::set_db`). Nullable credentials are used by default, you can set them using the method [set_credentials](`ClientArgs::set_credentials`).
+    ///
+    /// # Arguments:
+    /// - **host**: The host to connect to Redis.
+    ///
+    /// # Returns:
+    /// A new instance of [`ClientArgs`].
+    pub fn new(host: &'a str) -> ClientArgs<'a> {
         ClientArgs {
             credentials: None,
             host,
@@ -93,11 +173,19 @@ impl<'k> ClientArgs<'k> {
     }
 }
 
+/// To build a new instance of [`Client`].
 pub trait RedisClientBuilder {
+    /// Build a new instance of [`Client`].
+    ///
+    /// # Arguments:
+    /// - No arguments.
+    ///
+    /// # Returns:
+    /// A [`RedsumerResult`] with a new instance of [`Client`]. Otherwise, a [`RedsumerError`] is returned.
     fn build(&self) -> RedsumerResult<Client>;
 }
 
-impl<'k> RedisClientBuilder for ClientArgs<'k> {
+impl<'a> RedisClientBuilder for ClientArgs<'a> {
     fn build(&self) -> RedsumerResult<Client> {
         let addr: ConnectionAddr =
             ConnectionAddr::Tcp(String::from(self.get_host()), self.get_port());
@@ -122,6 +210,15 @@ impl<'k> RedisClientBuilder for ClientArgs<'k> {
     }
 }
 
+/// Verify the connection to the *Redis* server.
+///
+/// This function is used to verify if the connection to the *Redis* server is working properly.
+///
+/// # Arguments:
+/// - **c**: A mutable reference to a connection to *Redis*, which implements the [`ConnectionLike`] trait.
+///
+/// # Returns:
+/// A [`RedsumerResult`] with `()` if the connection is working properly. Otherwise, a [`RedsumerError`] is returned.
 pub fn ping<C>(c: &mut C) -> RedsumerResult<()>
 where
     C: ConnectionLike,
