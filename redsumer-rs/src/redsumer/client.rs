@@ -234,7 +234,7 @@ where
 }
 
 #[cfg(test)]
-pub mod test_client {
+mod test_client {
     use redis_test::MockRedisConnection;
 
     use super::*;
