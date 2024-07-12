@@ -9,7 +9,7 @@ use super::types::{RedsumerError, RedsumerResult};
 /// To hold credentials to authenticate in Redis.
 ///
 /// These credentials are used to authenticate in Redis when server requires it.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ClientCredentials<'k> {
     user: &'k str,
     password: &'k str,
@@ -62,7 +62,7 @@ impl<'k> ClientCredentials<'k> {
 /// `redis://[<user>][:<password>@]<host>:<port>/<db>`
 ///
 /// *User* and *password* are optional. If you don't need to authenticate in *Redis*, you can ignore them. *Port* and *db* are mandatory for the connection.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ClientArgs<'a> {
     credentials: Option<ClientCredentials<'a>>,
     host: &'a str,
