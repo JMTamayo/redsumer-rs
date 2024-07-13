@@ -319,37 +319,3 @@ mod test_client {
         assert_eq!(result.unwrap_err().to_string(), "Connection Verification Error - ClientError: The connection to the Redis server could not be verified. Please verify the client configuration or server availability");
     }
 }
-
-/// Get a new [`Client`] instance to connect to *Redis* using a connection URL in format:
-/// `redis://[<username>][:<password>@]<host>:<port>/<db>`
-///
-/// # Arguments:
-/// - **credentials**: Option to authenticate in *Redis*.
-/// - **host**: Redis host.
-/// - **port**: Redis port.
-/// - **db**: Redis database.
-///
-/// # Returns:
-/// - A [`RedsumerResult`] with a new instance of [`Client`] to connect to *Redis*. Otherwise, a [`RedsumerError`] is returned.
-pub fn get_redis_client(
-    credentials: Option<ClientCredentials>,
-    host: &str,
-    port: &str,
-    db: &str,
-) -> RedsumerResult<Client> {
-    let url: String = match credentials {
-        Some(credentials) => {
-            format!(
-                "redis://{}:{}@{}:{}/{}",
-                credentials.get_user(),
-                credentials.get_password(),
-                host,
-                port,
-                db,
-            )
-        }
-        None => format!("redis://{}:{}/{}", host, port, db,),
-    };
-
-    Ok(Client::open(url)?)
-}
