@@ -134,10 +134,10 @@ impl<'k, 'a> ClientArgs<'k, 'a> {
     /// use redsumer::{ClientArgs, ClientCredentials};
     ///
     /// let args = ClientArgs::new(
-    /// 	Some(ClientCredentials::new("user", "password")),
-    /// 	"localhost",
-    /// 	6379,
-    /// 	0
+    ///     Some(ClientCredentials::new("user", "password")),
+    ///     "localhost",
+    ///     6379,
+    ///     0,
     /// );
     /// ```
     pub fn new(
