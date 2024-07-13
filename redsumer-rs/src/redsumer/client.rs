@@ -6,9 +6,7 @@ use redis::{
 #[allow(unused_imports)]
 use super::types::{RedsumerError, RedsumerResult};
 
-/// To hold credentials to authenticate in Redis.
-///
-/// These credentials are used to authenticate in Redis when server requires it.
+/// To hold credentials to authenticate in Redis, that are used when server requires it.
 #[derive(Debug, Clone)]
 pub struct ClientCredentials<'k> {
     user: &'k str,
@@ -47,8 +45,10 @@ impl<'k> ClientCredentials<'k> {
     /// # Returns:
     /// A new instance of [`ClientCredentials`].
     ///
+    /// # Example:
     /// ```rust,no_run
     /// use redsumer::ClientCredentials;
+    ///
     /// let credentials = ClientCredentials::new("user", "password");
     /// ```
     pub fn new(user: &'k str, password: &'k str) -> ClientCredentials<'k> {
@@ -56,21 +56,22 @@ impl<'k> ClientCredentials<'k> {
     }
 }
 
-/// Define  the necessary arguments to create a [`Client`] instance.
+/// Define  the configuration parameters to create a [`Client`] instance.
 ///
 /// Take a look at the following supported connection URL format to infer the client arguments:
+///
 /// `redis://[<user>][:<password>@]<host>:<port>/<db>`
 ///
-/// *User* and *password* are optional. If you don't need to authenticate in *Redis*, you can ignore them. *Port* and *db* are mandatory for the connection.
+/// *user* and *password* are optional. If you don't need to authenticate in Redis, you can ignore them. *port* and *db* are mandatory for the connection. Another connection URL formats are not implemented yet.
 #[derive(Debug, Clone)]
-pub struct ClientArgs<'a> {
-    credentials: Option<ClientCredentials<'a>>,
+pub struct ClientArgs<'k, 'a> {
+    credentials: Option<ClientCredentials<'k>>,
     host: &'a str,
-    port: Option<u16>,
-    db: Option<u8>,
+    port: u16,
+    db: i64,
 }
 
-impl<'a> ClientArgs<'a> {
+impl<'k, 'a> ClientArgs<'k, 'a> {
     /// Get *credentials*.
     ///
     /// # Arguments:
@@ -78,7 +79,7 @@ impl<'a> ClientArgs<'a> {
     ///
     /// # Returns:
     /// The *credentials* to authenticate in Redis.
-    fn get_credentials(&self) -> &Option<ClientCredentials<'a>> {
+    fn get_credentials(&self) -> &Option<ClientCredentials> {
         &self.credentials
     }
 
@@ -95,20 +96,16 @@ impl<'a> ClientArgs<'a> {
 
     /// Get *port*.
     ///
-    /// If the port is not defined, the default value is 6379.
-    ///
     /// # Arguments:
     /// - No arguments.
     ///
     /// # Returns:
     /// The *port* to connect to Redis.
     fn get_port(&self) -> u16 {
-        self.port.unwrap_or(6379)
+        self.port
     }
 
     /// Get *db*.
-    ///
-    /// If the database is not defined, the default value is 0.
     ///
     /// # Arguments:
     /// - No arguments.
@@ -116,60 +113,44 @@ impl<'a> ClientArgs<'a> {
     /// # Returns:
     /// The database to connect to Redis.
     fn get_db(&self) -> i64 {
-        self.db.unwrap_or(0) as i64
-    }
-
-    /// Set *credentials*.
-    ///
-    /// # Arguments:
-    /// - **credentials**: The credentials to authenticate in Redis.
-    ///
-    /// # Returns:
-    /// Itself with the *credentials* set.
-    pub fn set_credentials(&mut self, credentials: ClientCredentials<'a>) -> &mut Self {
-        self.credentials = Some(credentials);
-        self
-    }
-
-    /// Set *port*.
-    ///
-    /// # Arguments:
-    /// - **port**: The port to connect to Redis.
-    ///
-    /// # Returns:
-    /// Itself with the *port* set.
-    pub fn set_port(&mut self, port: u16) -> &mut Self {
-        self.port = Some(port);
-        self
-    }
-
-    /// Set *db*.
-    ///
-    /// # Arguments:
-    /// - **db**: The database to connect to Redis.
-    ///
-    /// # Returns:
-    /// Itself with the *database* set.
-    pub fn set_db(&mut self, db: u8) -> &mut Self {
-        self.db = Some(db);
-        self
+        self.db
     }
 
     /// Create a new instance of [`ClientArgs`].
     ///
-    /// This function is used to create a new instance of [`ClientArgs`] with default *port* and *db*. If you need to change the default values, you can use the methods [set_port](`ClientArgs::set_port`) and [set_db](`ClientArgs::set_db`). Nullable *credentials* are used by default, you can set them using the method [set_credentials](`ClientArgs::set_credentials`).
+    /// This function is used to create a new instance of [`ClientArgs`] with specific *host*, *port*, and *database*. The *credentials*are optional.
     ///
     /// # Arguments:
-    /// - **host**: The host to connect to Redis.
+    /// - **credentials**: Credentials to authenticate in Redis.
+    /// - **host**: Host to connect to Redis.
+    /// - **port**: Redis server port.
+    /// - **db**: Redis database
     ///
     /// # Returns:
     /// A new instance of [`ClientArgs`].
-    pub fn new(host: &'a str) -> ClientArgs<'a> {
+    ///
+    /// # Example:
+    /// ```rust,no_run
+    /// use redsumer::{ClientArgs, ClientCredentials};
+    ///
+    /// let args = ClientArgs::new(
+    /// 	Some(ClientCredentials::new("user", "password")),
+    /// 	"localhost",
+    /// 	6379,
+    /// 	0
+    /// );
+    /// ```
+    pub fn new(
+        credentials: Option<ClientCredentials<'k>>,
+        host: &'a str,
+        port: u16,
+        db: i64,
+    ) -> ClientArgs<'k, 'a> {
         ClientArgs {
-            credentials: None,
+            credentials,
             host,
-            port: None,
-            db: None,
+            port,
+            db,
         }
     }
 }
@@ -186,7 +167,7 @@ pub trait RedisClientBuilder {
     fn build(&self) -> RedsumerResult<Client>;
 }
 
-impl<'a> RedisClientBuilder for ClientArgs<'a> {
+impl<'k, 'a> RedisClientBuilder for ClientArgs<'k, 'a> {
     fn build(&self) -> RedsumerResult<Client> {
         let addr: ConnectionAddr =
             ConnectionAddr::Tcp(String::from(self.get_host()), self.get_port());
@@ -256,17 +237,6 @@ mod test_client {
 
     #[test]
     fn test_redis_client_args() {
-        // Define the host to connect to Redis:
-        let host: &str = "localhost";
-
-        // Create a new instance of ClientArgs with default port and db:
-        let mut args: ClientArgs = ClientArgs::new(host);
-
-        // Verify if the args are correct:
-        assert_eq!(args.get_host(), host);
-        assert_eq!(args.get_port(), 6379);
-        assert_eq!(args.get_db(), 0);
-
         // Define the user and password to authenticate in Redis:
         let user: &str = "user";
         let password: &str = "password";
@@ -274,58 +244,51 @@ mod test_client {
         // Create a new instance of ClientCredentials:
         let credentials: ClientCredentials = ClientCredentials::new(user, password);
 
-        // Set credentials in ClientArgs:
-        args.set_credentials(credentials);
+        // Define the host to connect to Redis:
+        let host: &str = "localhost";
 
-        // Verify if the credentials are correct:
+        // Define the port to connect to Redis:
+        let port: u16 = 6379;
+
+        // Define the database to connect to Redis:
+        let db: i64 = 1;
+
+        // Create a new instance of ClientArgs with default port and db:
+        let args: ClientArgs = ClientArgs::new(Some(credentials), host, port, db);
+
+        // Verify if the args are correct:
+        assert!(args.get_credentials().is_some());
         assert_eq!(args.get_credentials().to_owned().unwrap().get_user(), user);
         assert_eq!(
             args.get_credentials().to_owned().unwrap().get_password(),
             password
         );
-
-        // Define the port to connect to Redis:
-        let port: u16 = 6380;
-
-        // Set port in ClientArgs:
-        args.set_port(port);
-
-        // Check if the port is correct:
+        assert_eq!(args.get_host(), host);
         assert_eq!(args.get_port(), port);
-
-        // Define the database to connect to Redis:
-        let db: u8 = 1;
-
-        // Set database in ClientArgs:
-        args.set_db(db);
-
-        // Verify if the database is correct:
-        assert_eq!(args.get_db(), db.into());
+        assert_eq!(args.get_db(), db);
     }
 
     #[test]
-    fn test_redis_client_builder() {
-        // Define the host to connect to Redis:
-        let host: &str = "localhost";
-
+    fn test_redis_client_builder_ok() {
         // Create a new instance of ClientArgs with default port and db:
-        let mut args: ClientArgs = ClientArgs::new(host);
+        let args: ClientArgs = ClientArgs::new(None, "localhost", 6377, 16);
 
         // Build a new instance of Client:
         let client_result: RedsumerResult<Client> = args.build();
 
-        // Verify if a client is correct:
+        // Verify if the client is correct:
         assert!(client_result.is_ok());
+    }
 
-        // Define the user and password to authenticate in Redis:
-        let user: &str = "user";
-        let password: &str = "password";
-
-        // Create a new instance of ClientCredentials:
-        let credentials: ClientCredentials = ClientCredentials::new(user, password);
-
-        // Set credentials in ClientArgs:
-        args.set_credentials(credentials);
+    #[test]
+    fn test_redis_client_builder_err() {
+        // Create a new instance of ClientArgs with default port and db:
+        let args: ClientArgs = ClientArgs::new(
+            Some(ClientCredentials::new("user", "password")),
+            "localhost",
+            6377,
+            16,
+        );
 
         // Build a new instance of Client:
         let client_result: RedsumerResult<Client> = args.build();
@@ -346,7 +309,9 @@ mod test_client {
     #[test]
     fn test_ping_error() {
         // Create a Redis client:
-        let mut client: Client = ClientArgs::new("remotehost").build().unwrap();
+        let mut client: Client = ClientArgs::new(None, "localhost", 6377, 16)
+            .build()
+            .unwrap();
 
         // Verify the connection to the server:
         let result: RedsumerResult<()> = ping(&mut client);
