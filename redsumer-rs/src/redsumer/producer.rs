@@ -104,7 +104,7 @@ impl<'p> Producer<'p> {
 
     /// Produce a new message in stream.
     ///
-    ///  This method produces a new message in the stream setting the *Id* as "*", which means that Redis will generate a new *Id* for the message automatically with the current timestamp.
+    /// This method produces a new message in the stream setting the *Id* as "*", which means that Redis will generate a new *Id* for the message automatically with the current timestamp.
     ///
     ///  If stream does not exist, it will be created.
     ///
