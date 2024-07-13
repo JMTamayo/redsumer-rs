@@ -111,7 +111,7 @@ impl<'p> Producer<'p> {
     /// # Arguments:
     /// - **message**: Message to produce in stream. It must implement [`ToRedisArgs`].
     ///
-    ///  # Returns:
+    /// # Returns:
     /// A [`RedsumerResult`] with the [`Id`] of the produced message. Otherwise, a [`RedsumerError`] is returned.
     ///
     /// # Example:
