@@ -75,14 +75,13 @@ impl<'p> Producer<'p> {
     /// - If connection to Redis server can not be established, a [`RedsumerError`] is returned.
     ///
     /// # Arguments:
-    /// - **args**: A [`ClientArgs`] instance with the connection parameters to *Redis* server.
+    /// - **args**: A [`ClientArgs`] instance with the connection parameters to Redis server.
     /// - **config**: A [`ProducerConfig`] instance with the producer configuration parameters.
     ///
     ///  # Returns:
     ///  A [`RedsumerResult`] with the new [`Producer`] instance. Otherwise, a [`RedsumerError`] is returned.
     ///
     ///  # Example:
-    ///	Create a new [`Producer`] instance.
     /// ```rust,no_run
     /// use redsumer::{ClientArgs, Producer, ProducerConfig};
     ///
@@ -91,7 +90,7 @@ impl<'p> Producer<'p> {
     ///
     /// let producer: Producer = Producer::new(
     ///     args,
-    /// 	config,
+    ///     config,
     /// ).unwrap_or_else(|err| {
     ///    panic!("Error creating producer: {:?}", err);
     /// });
