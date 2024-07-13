@@ -37,7 +37,7 @@ impl<'d> ProducerConfig<'d> {
 
 /// A producer implementation of Redis Streams.
 ///
-///  This struct is responsible for producing messages in a specific stream.
+/// This struct is responsible for producing messages in a specific stream.
 #[derive(Debug, Clone)]
 pub struct Producer<'p> {
     client: Client,
@@ -106,7 +106,7 @@ impl<'p> Producer<'p> {
     ///
     /// This method produces a new message in the stream setting the *Id* as "*", which means that Redis will generate a new *Id* for the message automatically with the current timestamp.
     ///
-    ///  If stream does not exist, it will be created.
+    /// If stream does not exist, it will be created.
     ///
     /// # Arguments:
     /// - **message**: Message to produce in stream. It must implement [`ToRedisArgs`].
