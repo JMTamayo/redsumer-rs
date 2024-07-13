@@ -24,4 +24,5 @@ redis = { version = "0.25.4", features = [ "streams"] }
 log = { version = "0.4.22" }
 
 [dev-dependencies]
+tokio = { version = "1.10.0", features = ["full"] }
 redis-test = { version = "0.4.0" }
