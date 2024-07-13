@@ -78,10 +78,10 @@ impl<'p> Producer<'p> {
     /// - **args**: A [`ClientArgs`] instance with the connection parameters to Redis server.
     /// - **config**: A [`ProducerConfig`] instance with the producer configuration parameters.
     ///
-    ///  # Returns:
+    /// # Returns:
     ///  A [`RedsumerResult`] with the new [`Producer`] instance. Otherwise, a [`RedsumerError`] is returned.
     ///
-    ///  # Example:
+    /// # Example:
     /// ```rust,no_run
     /// use redsumer::{ClientArgs, Producer, ProducerConfig};
     ///
@@ -113,6 +113,33 @@ impl<'p> Producer<'p> {
     ///
     ///  # Returns:
     /// A [`RedsumerResult`] with the [`Id`] of the produced message. Otherwise, a [`RedsumerError`] is returned.
+    ///
+    /// # Example:
+    /// ```rust,no_run
+    /// use std::collections::BTreeMap;
+    /// use redsumer::{ClientArgs, Id, Producer, ProducerConfig};
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let args: ClientArgs = ClientArgs::new(None, "127.0.0.1", 80, 0);
+    ///     let config: ProducerConfig = ProducerConfig::new("my_stream");
+    ///
+    ///     let producer: Producer = Producer::new(
+    ///         args,
+    ///         config,
+    ///     ).unwrap_or_else(|err| {
+    ///         panic!("Error creating producer: {:?}", err);
+    ///     });
+    ///
+    ///     let mut message: BTreeMap<&str, String> = BTreeMap::new();
+    ///     message.insert("name", String::from("Juan"));
+    ///     message.insert("last_name", String::from("Pérez"));
+    ///
+    ///     let id: Id = producer.produce(message).await.unwrap_or_else(|err| {
+    ///         panic!("Error producing message: {:?}", err);
+    ///     });
+    /// }
+    /// ```
     pub async fn produce<M>(&self, message: M) -> RedsumerResult<Id>
     where
         M: ToRedisArgs,
