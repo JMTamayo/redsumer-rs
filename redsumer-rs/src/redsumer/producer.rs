@@ -6,7 +6,7 @@ use super::client::{ping, ClientArgs, RedisClientBuilder};
 use super::types::{Id, RedsumerError, RedsumerResult};
 
 /// Define the configuration parameters to create a [`Producer`] instance.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ProducerConfig<'d> {
     stream_name: &'d str,
 }
@@ -19,7 +19,7 @@ impl<'d> ProducerConfig<'d> {
     ///
     /// # Returns:
     /// The stream name.
-    pub fn get_stream_name(&self) -> &str {
+    fn get_stream_name(&self) -> &str {
         self.stream_name
     }
 
@@ -38,7 +38,7 @@ impl<'d> ProducerConfig<'d> {
 /// A producer implementation of Redis Streams.
 ///
 ///  This struct is responsible for producing messages in a specific stream.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Producer<'p> {
     client: Client,
     config: ProducerConfig<'p>,
@@ -63,7 +63,7 @@ impl<'p> Producer<'p> {
     ///
     /// # Returns:
     /// [`ProducerConfig`] parameters.
-    pub fn get_config(&self) -> &ProducerConfig {
+    fn get_config(&self) -> &ProducerConfig {
         &self.config
     }
 
@@ -86,7 +86,7 @@ impl<'p> Producer<'p> {
     /// ```rust,no_run
     /// use redsumer::{ClientArgs, Producer, ProducerConfig};
     ///
-    /// let args: ClientArgs = ClientArgs::new("localhost");
+    /// let args: ClientArgs = ClientArgs::new(None, "localhost", 6379, 0);
     /// let config: ProducerConfig = ProducerConfig::new("my_stream");
     ///
     /// let producer: Producer = Producer::new(
@@ -123,5 +123,81 @@ impl<'p> Producer<'p> {
             "*",
             message,
         )
+    }
+}
+
+#[cfg(test)]
+mod test_producer {
+    use redis::ConnectionAddr;
+
+    use super::*;
+
+    #[test]
+    fn test_producer_config() {
+        // Create a new ProducerConfig instance.
+        let config: ProducerConfig = ProducerConfig::new("my_stream");
+
+        // Verify if the stream name is correct.
+        assert_eq!(config.get_stream_name(), "my_stream");
+    }
+
+    #[test]
+    fn test_producer_getters() {
+        // Define the host, port and db to connect to Redis server.
+        let host: &str = "localhost";
+        let port: u16 = 6379;
+        let db: i64 = 0;
+
+        // Create a new ClientArgs instance.
+        let args: ClientArgs = ClientArgs::new(None, host, port, db);
+
+        // Build a new Client instance.
+        let client: Client = args.build().unwrap();
+
+        // Define the stream name.
+        let stream_name: &str = "my_stream";
+
+        // Create a new ProducerConfig instance.
+        let config: ProducerConfig = ProducerConfig::new(stream_name);
+
+        // Create a new Producer instance.
+        let producer: Producer = Producer { client, config };
+
+        // Verify if the client is correct.
+        assert_eq!(
+            producer.get_client().get_connection_info().addr,
+            ConnectionAddr::Tcp(host.to_string(), port)
+        );
+        assert_eq!(producer.get_client().get_connection_info().redis.db, db);
+        assert_eq!(
+            producer.get_client().get_connection_info().redis.username,
+            None
+        );
+        assert_eq!(
+            producer.get_client().get_connection_info().redis.password,
+            None
+        );
+
+        // Verify if the config is correct.
+        assert_eq!(producer.get_config().get_stream_name(), stream_name);
+    }
+
+    #[test]
+    fn test_new_producer_error() {
+        // Create a new ProducerConfig instance.
+        let config: ProducerConfig = ProducerConfig::new("my_stream");
+
+        // Create a new ClientArgs instance.
+        let args: ClientArgs = ClientArgs::new(None, "invalid_host", 6379, 0);
+
+        // Create a new Producer instance.
+        let producer_result: RedsumerResult<Producer> = Producer::new(args, config);
+
+        // Verify if the error is correct.
+        assert!(producer_result.is_err());
+        assert_eq!(
+            producer_result.unwrap_err().to_string(),
+            "Connection Verification Error - ClientError: The connection to the Redis server could not be verified. Please verify the client configuration or server availability"
+        );
     }
 }
