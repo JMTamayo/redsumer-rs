@@ -1,6 +1,7 @@
-use redis::{Client, Commands, ToRedisArgs};
+use redis::{Client, ToRedisArgs};
 
-use super::client::{ping, ClientArgs, RedisClientBuilder};
+use super::client::{ClientArgs, RedisClientBuilder};
+use super::core::{ping, produce_from_map};
 
 #[allow(unused_imports)]
 use super::types::{Id, RedsumerError, RedsumerResult};
@@ -151,9 +152,9 @@ impl<'p> Producer<'p> {
     where
         M: ToRedisArgs,
     {
-        self.get_client().get_connection()?.xadd_map::<_, _, _, Id>(
+        produce_from_map(
+            &mut self.get_client().get_connection()?,
             self.get_config().get_stream_name(),
-            "*",
             message,
         )
     }
@@ -178,8 +179,8 @@ mod test_producer {
     fn test_producer_getters() {
         // Define the host, port and db to connect to Redis server.
         let host: &str = "localhost";
-        let port: u16 = 6379;
-        let db: i64 = 0;
+        let port: u16 = 6377;
+        let db: i64 = 16;
 
         // Create a new ClientArgs instance.
         let args: ClientArgs = ClientArgs::new(None, host, port, db);
@@ -221,7 +222,7 @@ mod test_producer {
         let config: ProducerConfig = ProducerConfig::new("my_stream");
 
         // Create a new ClientArgs instance.
-        let args: ClientArgs = ClientArgs::new(None, "invalid_host", 6379, 0);
+        let args: ClientArgs = ClientArgs::new(None, "invalid_host", 6377, 16);
 
         // Create a new Producer instance.
         let producer_result: RedsumerResult<Producer> = Producer::new(args, config);
