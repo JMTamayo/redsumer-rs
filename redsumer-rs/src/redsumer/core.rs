@@ -25,20 +25,6 @@ where
     conn.xadd_map::<_, _, _, Id>(key, "*", map)
 }
 
-pub fn produce_from_items<'a, C, K, F, V>(
-    conn: &mut C,
-    key: K,
-    items: &'a [(F, V)],
-) -> RedsumerResult<Id>
-where
-    C: Commands,
-    K: ToRedisArgs,
-    F: ToRedisArgs,
-    V: ToRedisArgs,
-{
-    conn.xadd::<_, _, _, _, Id>(key, "*", items)
-}
-
 #[cfg(test)]
 mod test_ping {
     use redis::Client;
@@ -123,62 +109,6 @@ mod test_produce_from_map {
 
         // Produce the message:
         let result: RedsumerResult<Id> = produce_from_map(&mut conn, key, map);
-
-        // Verify the result:
-        assert!(result.is_err());
-    }
-}
-
-#[cfg(test)]
-mod test_produce_from_items {
-    use redis::cmd;
-    use redis_test::{MockCmd, MockRedisConnection};
-
-    use super::*;
-
-    #[tokio::test]
-    async fn test_produce_from_items_ok() {
-        // Define the key and id:
-        let key: &str = "my-key";
-        let id: &str = "*";
-
-        // Define the items:
-        let items: &[(&str, &str)] = &[("field", "value")];
-
-        // Create a mock connection:
-        let mut conn: MockRedisConnection = MockRedisConnection::new(vec![MockCmd::new::<_, Id>(
-            cmd("XADD").arg(key).arg(id).arg(items),
-            Ok(id.to_string()),
-        )]);
-
-        // Produce the message:
-        let result: RedsumerResult<Id> = produce_from_items(&mut conn, key, items);
-
-        // Verify the result:
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_produce_from_items_error() {
-        // Define the key and id:
-        let key: &str = "my-key";
-        let id: &str = "*";
-
-        // Define the items:
-        let items: &[(&str, &str)] = &[("field", "value")];
-
-        // Create a mock connection:
-        let mut conn: MockRedisConnection = MockRedisConnection::new(vec![MockCmd::new::<_, Id>(
-            cmd("XADD").arg(key).arg(id).arg(items),
-            Err(RedisError::from((
-                ErrorKind::ResponseError,
-                "XADD Error",
-                "XADD command failed".to_string(),
-            ))),
-        )]);
-
-        // Produce the message:
-        let result: RedsumerResult<Id> = produce_from_items(&mut conn, key, items);
 
         // Verify the result:
         assert!(result.is_err());
