@@ -1,7 +1,4 @@
-use redis::{
-    Client, ConnectionAddr, ConnectionInfo, ConnectionLike, ErrorKind, RedisConnectionInfo,
-    RedisError,
-};
+use redis::{Client, ConnectionAddr, ConnectionInfo, RedisConnectionInfo};
 
 #[allow(unused_imports)]
 use super::types::{RedsumerError, RedsumerResult};
@@ -192,33 +189,8 @@ impl<'k, 'a> RedisClientBuilder for ClientArgs<'k, 'a> {
     }
 }
 
-/// Verify the connection to the Redis server.
-///
-/// This function is used to verify if the connection to the Redis server is working properly.
-///
-/// # Arguments:
-/// - **c**: A reference to a connection to Redis, which implements the [`ConnectionLike`] trait.
-///
-/// # Returns:
-/// A [`RedsumerResult`] with `()` if the connection is working properly. Otherwise, a [`RedsumerError`] is returned.
-pub fn ping<C>(c: &mut C) -> RedsumerResult<()>
-where
-    C: ConnectionLike,
-{
-    match c.check_connection() {
-        true => Ok(()),
-        false => Err(RedisError::from((
-            ErrorKind::ClientError,
-            "Connection Verification Error",
-            "The connection to the Redis server could not be verified. Please verify the client configuration or server availability".to_string(),
-        ))),
-    }
-}
-
 #[cfg(test)]
 mod test_client {
-    use redis_test::MockRedisConnection;
-
     use super::*;
 
     #[test]
@@ -295,27 +267,5 @@ mod test_client {
 
         // Verify if the client is correct:
         assert!(client_result.is_ok());
-    }
-
-    #[test]
-    fn test_ping_ok() {
-        // Create a mock connection:
-        let mut conn: MockRedisConnection = MockRedisConnection::new(vec![]);
-
-        // Verify the connection to the server:
-        assert!(ping(&mut conn).is_ok());
-    }
-
-    #[test]
-    fn test_ping_error() {
-        // Create a Redis client:
-        let mut client: Client = ClientArgs::new(None, "localhost", 6377, 16)
-            .build()
-            .unwrap();
-
-        // Verify the connection to the server:
-        let result: RedsumerResult<()> = ping(&mut client);
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err().to_string(), "Connection Verification Error - ClientError: The connection to the Redis server could not be verified. Please verify the client configuration or server availability");
     }
 }
