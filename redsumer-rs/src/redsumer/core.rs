@@ -1,3 +1,4 @@
+use log::debug;
 use redis::{Commands, ConnectionLike, ErrorKind, RedisError, ToRedisArgs};
 
 use super::types::*;
@@ -7,12 +8,19 @@ where
     C: ConnectionLike,
 {
     match c.check_connection() {
-        true => Ok(()),
-        false => Err(RedisError::from((
-            ErrorKind::ClientError,
-            "Connection Verification Error",
-            "The connection to the Redis server could not be verified. Please verify the client configuration or server availability".to_string(),
-        ))),
+        true => {
+            debug!("Connection to the Redis server was verified successfully");
+            Ok(())
+        }
+        false => {
+            debug!("Connection to the Redis server could not be verified");
+            Err(RedisError::from((
+				ErrorKind::ClientError,
+					"Connection Verification Error",
+					"The connection to the Redis server could not be verified. Please verify the client configuration or server availability".to_string(),
+				))
+			)
+        }
     }
 }
 
@@ -25,6 +33,34 @@ where
     conn.xadd_map::<_, _, _, Id>(key, "*", map)
 }
 
+pub fn create_consumers_group<C, K, G, ID>(
+    conn: &mut C,
+    key: K,
+    group: G,
+    since_id: ID,
+) -> RedsumerResult<()>
+where
+    C: Commands,
+    K: ToRedisArgs,
+    G: ToRedisArgs,
+    ID: ToRedisArgs,
+{
+    match conn.xgroup_create::<_, _, _, bool>(key, group, since_id) {
+        Ok(_) => {
+            debug!("Consumers group was created successfully");
+            Ok(())
+        }
+        Err(error) => {
+            if error.to_string().contains("BUSYGROUP") {
+                debug!("Consumers group already exists");
+                Ok(())
+            } else {
+                Err(error)
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test_ping {
     use redis::Client;
@@ -32,8 +68,8 @@ mod test_ping {
 
     use super::*;
 
-    #[tokio::test]
-    async fn test_ping_ok() {
+    #[test]
+    fn test_ping_ok() {
         // Create a mock connection:
         let mut conn: MockRedisConnection = MockRedisConnection::new(vec![]);
 
@@ -41,8 +77,8 @@ mod test_ping {
         assert!(ping(&mut conn).is_ok());
     }
 
-    #[tokio::test]
-    async fn test_ping_error() {
+    #[test]
+    fn test_ping_error() {
         // Create a client from a fake host:
         let mut client: Client = Client::open("redis://fakehost:6379/0").unwrap();
 
@@ -64,8 +100,8 @@ mod test_produce_from_map {
 
     use super::*;
 
-    #[tokio::test]
-    async fn test_produce_from_map_ok() {
+    #[test]
+    fn test_produce_from_map_ok() {
         // Define the key and id:
         let key: &str = "my-key";
         let id: &str = "*";
@@ -87,8 +123,8 @@ mod test_produce_from_map {
         assert!(result.is_ok());
     }
 
-    #[tokio::test]
-    async fn test_produce_from_map_error() {
+    #[test]
+    fn test_produce_from_map_error() {
         // Define the key and id:
         let key: &str = "my-key";
         let id: &str = "*";
@@ -109,6 +145,94 @@ mod test_produce_from_map {
 
         // Produce the message:
         let result: RedsumerResult<Id> = produce_from_map(&mut conn, key, map);
+
+        // Verify the result:
+        assert!(result.is_err());
+    }
+}
+
+#[cfg(test)]
+mod test_create_consumers_group {
+    use redis::cmd;
+    use redis_test::{MockCmd, MockRedisConnection};
+
+    use super::*;
+
+    #[test]
+    fn test_create_consumers_group_ok() {
+        // Define the key, group, and since id:
+        let key: &str = "my-key";
+        let group: &str = "my-group";
+        let since_id: &str = "0";
+
+        // Create a mock connection:
+        let mut conn: MockRedisConnection = MockRedisConnection::new(vec![MockCmd::new::<_, i64>(
+            cmd("XGROUP")
+                .arg("CREATE")
+                .arg(key)
+                .arg(group)
+                .arg(since_id),
+            Ok(1),
+        )]);
+
+        // Create the consumers group:
+        let result: RedsumerResult<()> = create_consumers_group(&mut conn, key, group, since_id);
+
+        // Verify the result:
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_create_consumers_group_already_exists() {
+        // Define the key, group, and since id:
+        let key: &str = "my-key";
+        let group: &str = "my-group";
+        let since_id: &str = "0";
+
+        // Create a mock connection:
+        let mut conn: MockRedisConnection = MockRedisConnection::new(vec![MockCmd::new::<_, i64>(
+            cmd("XGROUP")
+                .arg("CREATE")
+                .arg(key)
+                .arg(group)
+                .arg(since_id),
+            Err(RedisError::from((
+                ErrorKind::ResponseError,
+                "BUSYGROUP Error",
+                "BUSYGROUP Consumer Group already exists".to_string(),
+            ))),
+        )]);
+
+        // Create the consumers group:
+        let result: RedsumerResult<()> = create_consumers_group(&mut conn, key, group, since_id);
+
+        // Verify the result:
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_create_consumers_group_error() {
+        // Define the key, group, and since id:
+        let key: &str = "my-key";
+        let group: &str = "my-group";
+        let since_id: &str = "0";
+
+        // Create a mock connection:
+        let mut conn: MockRedisConnection = MockRedisConnection::new(vec![MockCmd::new::<_, i64>(
+            cmd("XGROUP")
+                .arg("CREATE")
+                .arg(key)
+                .arg(group)
+                .arg(since_id),
+            Err(RedisError::from((
+                ErrorKind::ResponseError,
+                "XGROUP Error",
+                "XGROUP command failed".to_string(),
+            ))),
+        )]);
+
+        // Create the consumers group:
+        let result: RedsumerResult<()> = create_consumers_group(&mut conn, key, group, since_id);
 
         // Verify the result:
         assert!(result.is_err());
