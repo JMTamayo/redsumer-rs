@@ -6,28 +6,15 @@ use redis::{
 
 use super::types::*;
 
-fn ping<C>(c: &mut C) -> RedsumerResult<()>
-where
-    C: ConnectionLike,
-{
-    match c.check_connection() {
-        true => {
-            debug!("Connection to the Redis server was verified successfully");
-            Ok(())
-        }
-        false => {
-            debug!("Connection to the Redis server could not be verified");
-            Err(RedisError::from((
-				ErrorKind::ClientError,
-					"Connection Verification Error",
-					"The connection to the Redis server could not be verified. Please verify the client configuration or server availability".to_string(),
-				))
-			)
-        }
-    }
-}
-
+/// A trait to verify the connection to the Redis server.
 pub trait VerifyConnection {
+    /// Verify the connection to the Redis server.
+    ///
+    /// # Arguments:
+    /// - No arguments.
+    ///
+    /// # Returns:
+    /// A [`RedsumerResult`] with `()` if the connection was verified successfully. Otherwise, a [`RedsumerError`] is returned.
     fn ping(&mut self) -> RedsumerResult<()>;
 }
 
@@ -36,17 +23,51 @@ where
     C: ConnectionLike,
 {
     fn ping(&mut self) -> RedsumerResult<()> {
-        ping(self)
+        match self.check_connection() {
+            true => {
+                debug!("Connection to the Redis server was verified successfully");
+                Ok(())
+            }
+            false => {
+                debug!("Connection to the Redis server could not be verified");
+                Err(RedisError::from((
+					ErrorKind::ClientError,
+						"Connection Verification Error",
+						"The connection to the Redis server could not be verified. Please verify the client configuration or server availability".to_string(),
+					))
+				)
+            }
+        }
     }
 }
 
-pub fn produce_from_map<C, K, M>(conn: &mut C, key: K, map: M) -> RedsumerResult<Id>
+/// A trait that bundles methods for producing messages in a Redis stream
+pub trait ProducerCommands {
+    /// Produce a message in a Redis stream from a map.
+    ///
+    /// # Arguments:
+    ///	- **key**: A Redis stream key, which must implement the `ToRedisArgs` trait.
+    /// - **map**: A map with the message fields and values, which must implement the `ToRedisArgs` trait.
+    ///
+    /// # Returns:
+    /// A [`RedsumerResult`] with the message [`Id`] if the message was produced successfully. Otherwise, a [`RedsumerError`] is returned.
+    fn produce_from_map<K, M>(&mut self, key: K, map: M) -> RedsumerResult<Id>
+    where
+        K: ToRedisArgs,
+        M: ToRedisArgs;
+}
+
+impl<C> ProducerCommands for C
 where
     C: Commands,
-    K: ToRedisArgs,
-    M: ToRedisArgs,
 {
-    conn.xadd_map::<_, _, _, Id>(key, "*", map)
+    fn produce_from_map<K, M>(&mut self, key: K, map: M) -> RedsumerResult<Id>
+    where
+        K: ToRedisArgs,
+        M: ToRedisArgs,
+    {
+        self.xadd_map::<_, _, _, Id>(key, "*", map)
+    }
 }
 
 pub fn create_consumers_group<C, K, G, ID>(
@@ -132,7 +153,7 @@ mod test_ping {
         let mut conn: MockRedisConnection = MockRedisConnection::new(vec![]);
 
         // Verify the connection to the server:
-        assert!(ping(&mut conn).is_ok());
+        assert!(conn.ping().is_ok());
     }
 
     #[test]
@@ -141,7 +162,7 @@ mod test_ping {
         let mut client: Client = Client::open("redis://fakehost:6379/0").unwrap();
 
         // Ping the server:
-        let ping_result: RedsumerResult<()> = ping(&mut client);
+        let ping_result: RedsumerResult<()> = client.ping();
 
         // Verify the connection to the server:
         assert!(ping_result.is_err());
@@ -175,7 +196,7 @@ mod test_produce_from_map {
         )]);
 
         // Produce the message:
-        let result: RedsumerResult<Id> = produce_from_map(&mut conn, key, map);
+        let result: RedsumerResult<Id> = conn.produce_from_map(key, map);
 
         // Verify the result:
         assert!(result.is_ok());
@@ -202,7 +223,7 @@ mod test_produce_from_map {
         )]);
 
         // Produce the message:
-        let result: RedsumerResult<Id> = produce_from_map(&mut conn, key, map);
+        let result: RedsumerResult<Id> = conn.produce_from_map(key, map);
 
         // Verify the result:
         assert!(result.is_err());
