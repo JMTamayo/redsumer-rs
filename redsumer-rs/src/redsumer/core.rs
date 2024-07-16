@@ -1,9 +1,12 @@
-use log::debug;
-use redis::{Commands, ConnectionLike, ErrorKind, RedisError, ToRedisArgs};
+use log::{debug, warn};
+use redis::{
+    streams::{StreamId, StreamReadOptions, StreamReadReply},
+    Commands, ConnectionLike, ErrorKind, RedisError, ToRedisArgs,
+};
 
 use super::types::*;
 
-pub fn ping<C>(c: &mut C) -> RedsumerResult<()>
+fn ping<C>(c: &mut C) -> RedsumerResult<()>
 where
     C: ConnectionLike,
 {
@@ -21,6 +24,19 @@ where
 				))
 			)
         }
+    }
+}
+
+pub trait VerifyConnection {
+    fn ping(&mut self) -> RedsumerResult<()>;
+}
+
+impl<C> VerifyConnection for C
+where
+    C: ConnectionLike,
+{
+    fn ping(&mut self) -> RedsumerResult<()> {
+        ping(self)
     }
 }
 
@@ -59,6 +75,48 @@ where
             }
         }
     }
+}
+
+pub trait UnwrapStreamReadReply {
+    fn unwrap_by_key(&self, key: &str) -> Vec<StreamId>;
+}
+
+impl UnwrapStreamReadReply for StreamReadReply {
+    fn unwrap_by_key(&self, key: &str) -> Vec<StreamId> {
+        let mut ids: Vec<StreamId> = Vec::new();
+        for stream in self.keys.iter() {
+            match stream.key.eq(key) {
+                true => ids.extend(stream.ids.to_owned()),
+                false => warn!("Unexpected stream name found: {}. ", stream.key),
+            };
+        }
+
+        ids
+    }
+}
+
+pub fn read_new_messages<C, K, G, N, B>(
+    conn: &mut C,
+    key: K,
+    group: G,
+    consumer: N,
+    count: usize,
+    block: usize,
+) -> RedsumerResult<StreamReadReply>
+where
+    C: Commands,
+    K: ToRedisArgs,
+    G: ToRedisArgs,
+    N: ToRedisArgs,
+{
+    conn.xread_options(
+        &[key],
+        &[">"],
+        &StreamReadOptions::default()
+            .group(group, consumer)
+            .count(count)
+            .block(block),
+    )
 }
 
 #[cfg(test)]
@@ -236,5 +294,47 @@ mod test_create_consumers_group {
 
         // Verify the result:
         assert!(result.is_err());
+    }
+}
+
+#[cfg(test)]
+mod test_unwrap_xread_reply_by_key {
+    use redis::streams::{StreamId, StreamKey};
+
+    use super::*;
+
+    #[test]
+    fn test_unwrap_xread_response_by_key_ok() {
+        // Define StreamReadReply:
+        let reply: StreamReadReply = StreamReadReply {
+            keys: vec![
+                StreamKey {
+                    key: "my-key".to_string(),
+                    ids: vec![StreamId::default()],
+                },
+                StreamKey {
+                    key: "another-key".to_string(),
+                    ids: vec![StreamId::default()],
+                },
+                StreamKey {
+                    key: "my-key".to_string(),
+                    ids: vec![StreamId::default()],
+                },
+            ],
+        };
+
+        // Unwrap the response:
+        let ids: Vec<StreamId> = reply.unwrap_by_key("my-key");
+
+        // Verify the result:
+        assert!(ids.len().eq(&2));
+    }
+}
+
+#[cfg(test)]
+mod test_read_new_messages {
+    #[test]
+    fn test_read_new_messages_ok() {
+        //	TODO: Implement unitary tests for the read_new_messages function
     }
 }
