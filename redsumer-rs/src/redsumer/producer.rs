@@ -1,7 +1,7 @@
 use redis::{Client, ToRedisArgs};
 
 use super::client::{ClientArgs, RedisClientBuilder};
-use super::core::{produce_from_map, VerifyConnection};
+use super::core::{ProducerCommands, VerifyConnection};
 
 #[allow(unused_imports)]
 use super::types::{Id, RedsumerError, RedsumerResult};
@@ -152,11 +152,9 @@ impl<'p> Producer<'p> {
     where
         M: ToRedisArgs,
     {
-        produce_from_map(
-            &mut self.get_client().get_connection()?,
-            self.get_config().get_stream_name(),
-            message,
-        )
+        self.get_client()
+            .get_connection()?
+            .produce_from_map(self.get_config().get_stream_name(), message)
     }
 }
 
