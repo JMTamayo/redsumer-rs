@@ -1,7 +1,7 @@
 use redis::{Client, ToRedisArgs};
 
 use super::client::{ClientArgs, RedisClientBuilder};
-use super::core::{ping, produce_from_map};
+use super::core::{produce_from_map, VerifyConnection};
 
 #[allow(unused_imports)]
 use super::types::{Id, RedsumerError, RedsumerResult};
@@ -104,8 +104,8 @@ impl<'p> Producer<'p> {
     /// });
     /// ```
     pub fn new(args: ClientArgs, config: ProducerConfig<'p>) -> RedsumerResult<Producer<'p>> {
-        let mut client: Client = args.build()?;
-        ping(&mut client)?;
+        let client: Client = args.build()?;
+        client.get_connection()?.ping()?;
 
         Ok(Producer { client, config })
     }
