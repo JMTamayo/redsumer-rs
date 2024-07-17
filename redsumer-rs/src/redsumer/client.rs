@@ -1,5 +1,3 @@
-use redis::{Client, ConnectionAddr, ConnectionInfo, RedisConnectionInfo};
-
 #[allow(unused_imports)]
 use super::types::{RedsumerError, RedsumerResult};
 
@@ -18,7 +16,7 @@ impl<'k> ClientCredentials<'k> {
     ///
     /// # Returns:
     /// The *user* to authenticate in Redis.
-    fn get_user(&self) -> &str {
+    pub fn get_user(&self) -> &str {
         self.user
     }
 
@@ -29,7 +27,7 @@ impl<'k> ClientCredentials<'k> {
     ///
     /// # Returns:
     /// The *password* to authenticate in Redis.
-    fn get_password(&self) -> &str {
+    pub fn get_password(&self) -> &str {
         self.password
     }
 
@@ -76,7 +74,7 @@ impl<'k, 'a> ClientArgs<'k, 'a> {
     ///
     /// # Returns:
     /// The *credentials* to authenticate in Redis.
-    fn get_credentials(&self) -> &Option<ClientCredentials> {
+    pub fn get_credentials(&self) -> &Option<ClientCredentials> {
         &self.credentials
     }
 
@@ -87,7 +85,7 @@ impl<'k, 'a> ClientArgs<'k, 'a> {
     ///
     /// # Returns:
     /// The *host* to connect to Redis.
-    fn get_host(&self) -> &str {
+    pub fn get_host(&self) -> &str {
         self.host
     }
 
@@ -98,7 +96,7 @@ impl<'k, 'a> ClientArgs<'k, 'a> {
     ///
     /// # Returns:
     /// The *port* to connect to Redis.
-    fn get_port(&self) -> u16 {
+    pub fn get_port(&self) -> u16 {
         self.port
     }
 
@@ -109,7 +107,7 @@ impl<'k, 'a> ClientArgs<'k, 'a> {
     ///
     /// # Returns:
     /// The database to connect to Redis.
-    fn get_db(&self) -> i64 {
+    pub fn get_db(&self) -> i64 {
         self.db
     }
 
@@ -149,43 +147,6 @@ impl<'k, 'a> ClientArgs<'k, 'a> {
             port,
             db,
         }
-    }
-}
-
-/// To build a new instance of [`Client`].
-pub trait RedisClientBuilder {
-    /// Build a new instance of [`Client`].
-    ///
-    /// # Arguments:
-    /// - No arguments.
-    ///
-    /// # Returns:
-    /// A [`RedsumerResult`] with a new instance of [`Client`]. Otherwise, a [`RedsumerError`] is returned.
-    fn build(&self) -> RedsumerResult<Client>;
-}
-
-impl<'k, 'a> RedisClientBuilder for ClientArgs<'k, 'a> {
-    fn build(&self) -> RedsumerResult<Client> {
-        let addr: ConnectionAddr =
-            ConnectionAddr::Tcp(String::from(self.get_host()), self.get_port());
-
-        let username: Option<String> = self
-            .get_credentials()
-            .to_owned()
-            .map(|c| c.get_user().to_string());
-
-        let password: Option<String> = self
-            .get_credentials()
-            .to_owned()
-            .map(|c| c.get_password().to_string());
-
-        let redis: RedisConnectionInfo = RedisConnectionInfo {
-            db: self.get_db(),
-            username,
-            password,
-        };
-
-        Client::open(ConnectionInfo { addr, redis })
     }
 }
 
@@ -238,34 +199,5 @@ mod test_client {
         assert_eq!(args.get_host(), host);
         assert_eq!(args.get_port(), port);
         assert_eq!(args.get_db(), db);
-    }
-
-    #[test]
-    fn test_redis_client_builder_ok() {
-        // Create a new instance of ClientArgs with default port and db:
-        let args: ClientArgs = ClientArgs::new(None, "localhost", 6377, 16);
-
-        // Build a new instance of Client:
-        let client_result: RedsumerResult<Client> = args.build();
-
-        // Verify if the client is correct:
-        assert!(client_result.is_ok());
-    }
-
-    #[test]
-    fn test_redis_client_builder_err() {
-        // Create a new instance of ClientArgs with default port and db:
-        let args: ClientArgs = ClientArgs::new(
-            Some(ClientCredentials::new("user", "password")),
-            "localhost",
-            6377,
-            16,
-        );
-
-        // Build a new instance of Client:
-        let client_result: RedsumerResult<Client> = args.build();
-
-        // Verify if the client is correct:
-        assert!(client_result.is_ok());
     }
 }

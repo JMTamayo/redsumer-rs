@@ -1,10 +1,50 @@
 use log::{debug, warn};
 use redis::{
     streams::{StreamId, StreamReadOptions, StreamReadReply},
-    Commands, ErrorKind, RedisError, ToRedisArgs,
+    Client, Commands, ConnectionAddr, ConnectionInfo, ErrorKind, RedisConnectionInfo, RedisError,
+    ToRedisArgs,
 };
 
+use crate::ClientArgs;
+
 use super::types::*;
+
+/// To build a new instance of [`Client`].
+pub trait RedisClientBuilder {
+    /// Build a new instance of [`Client`].
+    ///
+    /// # Arguments:
+    /// - No arguments.
+    ///
+    /// # Returns:
+    /// A [`RedsumerResult`] with a new instance of [`Client`]. Otherwise, a [`RedsumerError`] is returned.
+    fn build(&self) -> RedsumerResult<Client>;
+}
+
+impl<'k, 'a> RedisClientBuilder for ClientArgs<'k, 'a> {
+    fn build(&self) -> RedsumerResult<Client> {
+        let addr: ConnectionAddr =
+            ConnectionAddr::Tcp(String::from(self.get_host()), self.get_port());
+
+        let username: Option<String> = self
+            .get_credentials()
+            .to_owned()
+            .map(|c| c.get_user().to_string());
+
+        let password: Option<String> = self
+            .get_credentials()
+            .to_owned()
+            .map(|c| c.get_password().to_string());
+
+        let redis: RedisConnectionInfo = RedisConnectionInfo {
+            db: self.get_db(),
+            username,
+            password,
+        };
+
+        Client::open(ConnectionInfo { addr, redis })
+    }
+}
 
 /// A trait to verify the connection to the Redis server.
 pub trait VerifyConnection {
@@ -141,7 +181,24 @@ where
 }
 
 #[cfg(test)]
-mod test_ping {
+mod test_redis_client_builder {
+    use super::*;
+
+    #[test]
+    fn test_redis_client_builder_ok() {
+        // Create a new instance of ClientArgs with default port and db:
+        let args: ClientArgs = ClientArgs::new(None, "localhost", 6377, 16);
+
+        // Build a new instance of Client:
+        let client_result: RedsumerResult<Client> = args.build();
+
+        // Verify if the client is correct:
+        assert!(client_result.is_ok());
+    }
+}
+
+#[cfg(test)]
+mod test_verify_connection {
     use redis::Client;
     use redis_test::MockRedisConnection;
 
