@@ -9,8 +9,8 @@ use redis::{
     Client, Commands, Connection, ErrorKind, RedisError,
 };
 
-use super::client::{ClientArgs, RedisClientBuilder};
-use super::core::{create_consumers_group, VerifyConnection};
+use super::client::ClientArgs;
+use super::core::{create_consumers_group, RedisClientBuilder, VerifyConnection};
 
 #[allow(unused_imports)]
 use super::types::{Id, RedsumerError, RedsumerResult};
