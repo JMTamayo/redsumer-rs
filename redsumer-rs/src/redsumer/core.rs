@@ -1,7 +1,7 @@
 use log::{debug, warn};
 use redis::{
     streams::{StreamId, StreamReadOptions, StreamReadReply},
-    Commands, ConnectionLike, ErrorKind, RedisError, ToRedisArgs,
+    Commands, ErrorKind, RedisError, ToRedisArgs,
 };
 
 use super::types::*;
@@ -20,7 +20,7 @@ pub trait VerifyConnection {
 
 impl<C> VerifyConnection for C
 where
-    C: ConnectionLike,
+    C: Commands,
 {
     fn ping(&mut self) -> RedsumerResult<()> {
         match self.check_connection() {
