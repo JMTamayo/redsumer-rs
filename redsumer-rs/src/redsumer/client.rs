@@ -1,3 +1,5 @@
+pub use redis::ProtocolVersion;
+
 #[allow(unused_imports)]
 use super::types::{RedsumerError, RedsumerResult};
 
@@ -64,6 +66,7 @@ pub struct ClientArgs<'k, 'a> {
     host: &'a str,
     port: u16,
     db: i64,
+    protocol_version: ProtocolVersion,
 }
 
 impl<'k, 'a> ClientArgs<'k, 'a> {
@@ -111,6 +114,10 @@ impl<'k, 'a> ClientArgs<'k, 'a> {
         self.db
     }
 
+    pub fn get_protocol_version(&self) -> ProtocolVersion {
+        self.protocol_version
+    }
+
     /// Create a new instance of [`ClientArgs`].
     ///
     /// This function is used to create a new instance of [`ClientArgs`] with specific *host*, *port*, and *database*. The *credentials*are optional.
@@ -120,19 +127,21 @@ impl<'k, 'a> ClientArgs<'k, 'a> {
     /// - **host**: Host to connect to Redis.
     /// - **port**: Redis server port.
     /// - **db**: Redis database
+    /// - **protocol_version**: Redis protocol version.
     ///
     /// # Returns:
     /// A new instance of [`ClientArgs`].
     ///
     /// # Example:
     /// ```rust,no_run
-    /// use redsumer::{ClientArgs, ClientCredentials};
+    /// use redsumer::{ClientArgs, ClientCredentials, ProtocolVersion};
     ///
     /// let args = ClientArgs::new(
     ///     Some(ClientCredentials::new("user", "password")),
     ///     "localhost",
     ///     6379,
     ///     0,
+    /// 	ProtocolVersion::RESP2
     /// );
     /// ```
     pub fn new(
@@ -140,12 +149,14 @@ impl<'k, 'a> ClientArgs<'k, 'a> {
         host: &'a str,
         port: u16,
         db: i64,
+        protocol_version: ProtocolVersion,
     ) -> ClientArgs<'k, 'a> {
         ClientArgs {
             credentials,
             host,
             port,
             db,
+            protocol_version,
         }
     }
 }
@@ -186,8 +197,11 @@ mod test_client {
         // Define the database to connect to Redis:
         let db: i64 = 1;
 
+        // Define the redis protocol version:
+        let protocol_version: ProtocolVersion = ProtocolVersion::RESP2;
+
         // Create a new instance of ClientArgs with default port and db:
-        let args: ClientArgs = ClientArgs::new(Some(credentials), host, port, db);
+        let args: ClientArgs = ClientArgs::new(Some(credentials), host, port, db, protocol_version);
 
         // Verify if the args are correct:
         assert!(args.get_credentials().is_some());

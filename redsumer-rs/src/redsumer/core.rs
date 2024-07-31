@@ -40,6 +40,7 @@ impl<'k, 'a> RedisClientBuilder for ClientArgs<'k, 'a> {
             db: self.get_db(),
             username,
             password,
+            protocol: self.get_protocol_version(),
         };
 
         Client::open(ConnectionInfo { addr, redis })
@@ -182,12 +183,14 @@ where
 
 #[cfg(test)]
 mod test_redis_client_builder {
+    use redis::ProtocolVersion;
+
     use super::*;
 
     #[test]
     fn test_redis_client_builder_ok() {
         // Create a new instance of ClientArgs with default port and db:
-        let args: ClientArgs = ClientArgs::new(None, "localhost", 6377, 16);
+        let args: ClientArgs = ClientArgs::new(None, "localhost", 6377, 16, ProtocolVersion::RESP2);
 
         // Build a new instance of Client:
         let client_result: RedsumerResult<Client> = args.build();

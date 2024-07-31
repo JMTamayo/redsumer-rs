@@ -159,7 +159,7 @@ impl<'p> Producer<'p> {
 
 #[cfg(test)]
 mod test_producer {
-    use redis::ConnectionAddr;
+    use redis::{ConnectionAddr, ProtocolVersion};
 
     use super::*;
 
@@ -180,7 +180,7 @@ mod test_producer {
         let db: i64 = 16;
 
         // Create a new ClientArgs instance.
-        let args: ClientArgs = ClientArgs::new(None, host, port, db);
+        let args: ClientArgs = ClientArgs::new(None, host, port, db, ProtocolVersion::default());
 
         // Build a new Client instance.
         let client: Client = args.build().unwrap();
@@ -219,7 +219,8 @@ mod test_producer {
         let config: ProducerConfig = ProducerConfig::new("my_stream");
 
         // Create a new ClientArgs instance.
-        let args: ClientArgs = ClientArgs::new(None, "invalid_host", 6377, 16);
+        let args: ClientArgs =
+            ClientArgs::new(None, "invalid_host", 6377, 16, ProtocolVersion::default());
 
         // Create a new Producer instance.
         let producer_result: RedsumerResult<Producer> = Producer::new(args, config);
