@@ -385,10 +385,10 @@ impl<'c> Consumer<'c> {
     /// # Returns:
     ///  - A [`RedsumerResult`] containing a boolean value. If the message is acked, `true` is returned. Otherwise, `false` is returned. If an error occurs, a [`RedsumerError`] is returned.
     pub async fn ack(&self, id: &Id) -> RedsumerResult<bool> {
-        Ok(self.get_client().get_connection()?.xack::<_, _, _, bool>(
+        self.get_client().get_connection()?.xack::<_, _, _, bool>(
             self.get_config().stream_name,
             self.get_config().group_name,
             &[id],
-        )?)
+        )
     }
 }
