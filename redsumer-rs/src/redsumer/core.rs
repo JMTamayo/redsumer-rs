@@ -1,12 +1,14 @@
 use log::{debug, warn};
 use redis::{
-    streams::{StreamId, StreamReadOptions, StreamReadReply},
+    streams::{
+        StreamAutoClaimOptions, StreamAutoClaimReply, StreamId, StreamPendingCountReply,
+        StreamReadOptions, StreamReadReply,
+    },
     Client, Commands, ConnectionAddr, ConnectionInfo, ErrorKind, RedisConnectionInfo, RedisError,
     ToRedisArgs,
 };
 
-use crate::ClientArgs;
-
+use super::client::ClientArgs;
 use super::types::*;
 
 /// To build a new instance of [`Client`].
@@ -40,7 +42,7 @@ impl<'k, 'a> RedisClientBuilder for ClientArgs<'k, 'a> {
             db: self.get_db(),
             username,
             password,
-            protocol: self.get_protocol_version(),
+            protocol: self.get_protocol(),
         };
 
         Client::open(ConnectionInfo { addr, redis })
@@ -82,36 +84,16 @@ where
     }
 }
 
-/// A trait that bundles methods for producing messages in a Redis stream
-pub trait ProducerCommands {
-    /// Produce a message in a Redis stream from a map.
-    ///
-    /// # Arguments:
-    ///	- **key**: A Redis stream key, which must implement the `ToRedisArgs` trait.
-    /// - **map**: A map with the message fields and values, which must implement the `ToRedisArgs` trait.
-    ///
-    /// # Returns:
-    /// A [`RedsumerResult`] with the message [`Id`] if the message was produced successfully. Otherwise, a [`RedsumerError`] is returned.
-    fn produce_from_map<K, M>(&mut self, key: K, map: M) -> RedsumerResult<Id>
-    where
-        K: ToRedisArgs,
-        M: ToRedisArgs;
-}
-
-impl<C> ProducerCommands for C
+fn produce_from_map<C, K, M>(conn: &mut C, key: K, map: M) -> RedsumerResult<Id>
 where
     C: Commands,
+    K: ToRedisArgs,
+    M: ToRedisArgs,
 {
-    fn produce_from_map<K, M>(&mut self, key: K, map: M) -> RedsumerResult<Id>
-    where
-        K: ToRedisArgs,
-        M: ToRedisArgs,
-    {
-        self.xadd_map::<_, _, _, Id>(key, "*", map)
-    }
+    conn.xadd_map::<_, _, _, Id>(key, "*", map)
 }
 
-pub fn create_consumers_group<C, K, G, ID>(
+fn create_consumers_group<C, K, G, ID>(
     conn: &mut C,
     key: K,
     group: G,
@@ -139,29 +121,11 @@ where
     }
 }
 
-pub trait UnwrapStreamReadReply {
-    fn unwrap_by_key(&self, key: &str) -> Vec<StreamId>;
-}
-
-impl UnwrapStreamReadReply for StreamReadReply {
-    fn unwrap_by_key(&self, key: &str) -> Vec<StreamId> {
-        let mut ids: Vec<StreamId> = Vec::new();
-        for stream in self.keys.iter() {
-            match stream.key.eq(key) {
-                true => ids.extend(stream.ids.to_owned()),
-                false => warn!("Unexpected stream name found: {}. ", stream.key),
-            };
-        }
-
-        ids
-    }
-}
-
-pub fn read_new_messages<C, K, G, N, B>(
+fn read_new_messages<C, K, G, N>(
     conn: &mut C,
-    key: K,
-    group: G,
-    consumer: N,
+    key: &K,
+    group: &G,
+    consumer: &N,
     count: usize,
     block: usize,
 ) -> RedsumerResult<StreamReadReply>
@@ -179,6 +143,357 @@ where
             .count(count)
             .block(block),
     )
+}
+
+fn read_own_pending_messages<C, K, G, N, ID>(
+    conn: &mut C,
+    key: &K,
+    group: &G,
+    consumer: &N,
+    since_id: &ID,
+    count: usize,
+) -> RedsumerResult<StreamReadReply>
+where
+    C: Commands,
+    K: ToRedisArgs,
+    G: ToRedisArgs,
+    N: ToRedisArgs,
+    ID: ToRedisArgs,
+{
+    conn.xread_options(
+        &[key],
+        &[since_id],
+        &StreamReadOptions::default()
+            .group(group, consumer)
+            .count(count),
+    )
+}
+
+fn claim_pending_messages<C, K, G, N, ID>(
+    conn: &mut C,
+    key: &K,
+    group: &G,
+    consumer: &N,
+    since_id: &ID,
+    min_idle_time: usize,
+    count: usize,
+) -> RedsumerResult<StreamAutoClaimReply>
+where
+    C: Commands,
+    K: ToRedisArgs,
+    G: ToRedisArgs,
+    N: ToRedisArgs,
+    ID: ToRedisArgs,
+{
+    conn.xautoclaim_options(
+        key,
+        group,
+        consumer,
+        min_idle_time,
+        since_id,
+        StreamAutoClaimOptions::default().count(count),
+    )
+}
+
+pub trait UnwrapStreamReadReply<K> {
+    fn unwrap_by_key(&self, key: &K) -> Vec<StreamId>
+    where
+        K: ToString;
+}
+
+impl<K> UnwrapStreamReadReply<K> for StreamReadReply
+where
+    K: ToString,
+{
+    fn unwrap_by_key(&self, key: &K) -> Vec<StreamId> {
+        let mut ids: Vec<StreamId> = Vec::new();
+        for stream in self.keys.iter() {
+            match stream.key.eq(&key.to_string()) {
+                true => ids.extend(stream.ids.to_owned()),
+                false => warn!("Unexpected stream name found: {}. ", stream.key),
+            };
+        }
+
+        ids
+    }
+}
+
+pub trait UnwrapStreamAutoClaimReply {
+    fn unwrap(&self) -> (Vec<StreamId>, Option<Id>);
+}
+
+impl UnwrapStreamAutoClaimReply for StreamAutoClaimReply {
+    fn unwrap(&self) -> (Vec<StreamId>, Option<Id>) {
+        (
+            self.claimed.to_owned(),
+            Some(self.next_stream_id.to_owned()),
+        )
+    }
+}
+
+fn consume_messages_from_stream<C, K, G, N, ID>(
+    conn: &mut C,
+    key: K,
+    group: G,
+    consumer: N,
+    since_id: ID,
+    new_messages_count: usize,
+    pending_messages_count: usize,
+    claimed_messages_count: usize,
+    min_idle_time: usize,
+    block: usize,
+) -> RedsumerResult<(Vec<StreamId>, Option<Id>)>
+where
+    C: Commands,
+    K: ToRedisArgs + ToString,
+    G: ToRedisArgs,
+    N: ToRedisArgs,
+    ID: ToRedisArgs,
+{
+    let new_messages: Vec<StreamId> = match new_messages_count.gt(&0) {
+        true => read_new_messages(conn, &key, &group, &consumer, new_messages_count, block)?
+            .unwrap_by_key(&key),
+        false => Vec::new(),
+    };
+    if new_messages.len().gt(&0) {
+        return Ok((new_messages, None));
+    }
+
+    let pending_messages: Vec<StreamId> = match pending_messages_count.gt(&0) {
+        true => read_own_pending_messages(
+            conn,
+            &key,
+            &group,
+            &consumer,
+            &since_id,
+            claimed_messages_count,
+        )?
+        .unwrap_by_key(&key),
+        false => Vec::new(),
+    };
+    if pending_messages.len().gt(&0) {
+        return Ok((pending_messages, None));
+    }
+
+    let claimed_messages_reply: (Vec<StreamId>, Option<Id>) = match claimed_messages_count.gt(&0) {
+        true => claim_pending_messages(
+            conn,
+            &key,
+            &group,
+            &consumer,
+            &since_id,
+            min_idle_time,
+            claimed_messages_count,
+        )?
+        .unwrap(),
+        false => (Vec::new(), None),
+    };
+    if claimed_messages_reply.0.len().gt(&0) {
+        return Ok(claimed_messages_reply);
+    }
+
+    Ok((Vec::new(), None))
+}
+
+fn verify_stream_message_ownership<C, K, G, N, ID>(
+    conn: &mut C,
+    key: K,
+    group: G,
+    consumer: N,
+    id: ID,
+) -> RedsumerResult<bool>
+where
+    C: Commands,
+    K: ToRedisArgs,
+    G: ToRedisArgs,
+    N: ToRedisArgs,
+    ID: ToRedisArgs,
+{
+    Ok(conn
+        .xpending_consumer_count::<_, _, _, _, _, _, StreamPendingCountReply>(
+            key, group, &id, &id, 1, consumer,
+        )?
+        .ids
+        .len()
+        .gt(&0))
+}
+
+fn ack_stream_message<C, K, G, ID>(conn: &mut C, key: K, group: G, id: ID) -> RedsumerResult<bool>
+where
+    C: Commands,
+    K: ToRedisArgs,
+    G: ToRedisArgs,
+    ID: ToRedisArgs,
+{
+    conn.xack(key, group, &[id])
+}
+
+/// A trait that bundles methods for producing messages in a Redis stream
+pub trait ProducerCommands<K, M>
+where
+    K: ToRedisArgs,
+    M: ToRedisArgs,
+{
+    /// Produce a message in a Redis stream from a map.
+    ///
+    /// # Arguments:
+    ///	- **key**: A stream key, which must implement the `ToRedisArgs` trait.
+    /// - **map**: A map with the message fields and values, which must implement the `ToRedisArgs` trait.
+    ///
+    /// # Returns:
+    /// A [`RedsumerResult`] with the message [`Id`] if the message was produced successfully. Otherwise, a [`RedsumerError`] is returned.
+    fn produce_from_map(&mut self, key: K, map: M) -> RedsumerResult<Id>
+    where
+        K: ToRedisArgs,
+        M: ToRedisArgs;
+}
+
+impl<C, K, M> ProducerCommands<K, M> for C
+where
+    C: Commands,
+    K: ToRedisArgs,
+    M: ToRedisArgs,
+{
+    fn produce_from_map(&mut self, key: K, map: M) -> RedsumerResult<Id> {
+        produce_from_map(self, key, map)
+    }
+}
+
+/// A trait that bundles methods for consuming messages from a Redis stream
+pub trait ConsumerCommands<K, G, ID>
+where
+    K: ToRedisArgs + ToString,
+    G: ToRedisArgs,
+    ID: ToRedisArgs,
+{
+    /// Create a consumers group in a Redis stream.
+    ///
+    /// # Arguments:
+    /// - **key**: A stream key, which must implement the `ToRedisArgs` trait.
+    /// - **group**: A consumers group, which must implement the `ToRedisArgs` trait.
+    /// - **since_id**: The ID of the message to start consuming, which must implement the `ToRedisArgs` trait.
+    ///
+    /// # Returns:
+    /// A [`RedsumerResult`] with `()` if the consumers group was created successfully. Otherwise, a [`RedsumerError`] is returned.
+    fn create_consumers_group(&mut self, key: K, group: G, since_id: ID) -> RedsumerResult<()>;
+
+    /// Consume messages from a Redis stream.
+    ///
+    /// # Arguments:
+    /// - **key**: A stream key, which must implement the `ToRedisArgs` trait.
+    /// - **group**: A consumers group, which must implement the `ToRedisArgs` trait.
+    /// - **consumer**: A consumer name, which must implement the `ToRedisArgs` trait.
+    /// - **since_id**: The ID of the message to start consuming, which must implement the `ToRedisArgs` trait.
+    /// - **new_messages_count**: The number of new messages to read, which must be a positive integer.
+    /// - **pending_messages_count**: The number of pending messages to read, which must be a positive integer.
+    /// - **claimed_messages_count**: The number of claimed messages to read, which must be a positive integer.
+    /// - **min_idle_time**: The minimum idle time in milliseconds, which must be a positive integer.
+    /// - **block**: The block time in seconds, which must be a positive integer.
+    ///
+    /// # Returns:
+    /// A [`RedsumerResult`] with a tuple containing the following elements:
+    /// - **0**: A vector of [`StreamId`] with the consumed messages.
+    /// - **1**: An optional [`Id`] with the next stream id to use as the start argument for the next xautoclaim.
+    fn consume_messages_from_stream<N>(
+        &mut self,
+        key: K,
+        group: G,
+        consumer: N,
+        since_id: ID,
+        new_messages_count: usize,
+        pending_messages_count: usize,
+        claimed_messages_count: usize,
+        min_idle_time: usize,
+        block: usize,
+    ) -> RedsumerResult<(Vec<StreamId>, Option<Id>)>
+    where
+        N: ToRedisArgs;
+
+    /// Verify if a specific message by *id* is still in consumer pending list.
+    ///
+    /// # Arguments:
+    /// - **id**: Stream message id.
+    ///
+    ///  # Returns:
+    ///  - A [`RedsumerResult`] containing a boolean value. If the message is still in consumer pending list, `true` is returned. Otherwise, `false` is returned. If an error occurs, a [`RedsumerError`] is returned.
+    fn verify_stream_message_ownership<N>(
+        &mut self,
+        key: K,
+        group: G,
+        consumer: N,
+        id: ID,
+    ) -> RedsumerResult<bool>
+    where
+        N: ToRedisArgs;
+
+    /// Ack a stream message.
+    ///
+    /// # Arguments:
+    /// - **key**: A stream key, which must implement the `ToRedisArgs` trait.
+    /// - **group**: A consumers group, which must implement the `ToRedisArgs` trait.
+    /// - **id**: Stream message id.
+    ///
+    /// # Returns:
+    /// A [`RedsumerResult`] with a boolean value. If the message was acked successfully, `true` is returned. Otherwise, `false` is returned. If an error occurs, a [`RedsumerError`] is returned.
+    fn ack_stream_message(&mut self, key: K, group: G, id: ID) -> RedsumerResult<bool>;
+}
+
+impl<C, K, G, ID> ConsumerCommands<K, G, ID> for C
+where
+    C: Commands,
+    K: ToRedisArgs + ToString,
+    G: ToRedisArgs,
+    ID: ToRedisArgs,
+{
+    fn create_consumers_group(&mut self, key: K, group: G, since_id: ID) -> RedsumerResult<()> {
+        create_consumers_group(self, key, group, since_id)
+    }
+
+    fn consume_messages_from_stream<N>(
+        &mut self,
+        key: K,
+        group: G,
+        consumer: N,
+        since_id: ID,
+        new_messages_count: usize,
+        pending_messages_count: usize,
+        claimed_messages_count: usize,
+        min_idle_time: usize,
+        block: usize,
+    ) -> RedsumerResult<(Vec<StreamId>, Option<Id>)>
+    where
+        N: ToRedisArgs,
+    {
+        consume_messages_from_stream(
+            self,
+            key,
+            group,
+            consumer,
+            since_id,
+            new_messages_count,
+            pending_messages_count,
+            claimed_messages_count,
+            min_idle_time,
+            block,
+        )
+    }
+
+    fn verify_stream_message_ownership<N>(
+        &mut self,
+        key: K,
+        group: G,
+        consumer: N,
+        id: ID,
+    ) -> RedsumerResult<bool>
+    where
+        N: ToRedisArgs,
+    {
+        verify_stream_message_ownership(self, &key, &group, &consumer, &id)
+    }
+
+    fn ack_stream_message(&mut self, key: K, group: G, id: ID) -> RedsumerResult<bool> {
+        ack_stream_message(self, key, group, id)
+    }
 }
 
 #[cfg(test)]
@@ -405,7 +720,7 @@ mod test_unwrap_xread_reply_by_key {
         };
 
         // Unwrap the response:
-        let ids: Vec<StreamId> = reply.unwrap_by_key("my-key");
+        let ids: Vec<StreamId> = reply.unwrap_by_key(&"my-key");
 
         // Verify the result:
         assert!(ids.len().eq(&2));
