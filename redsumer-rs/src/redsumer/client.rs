@@ -1,7 +1,5 @@
-pub use redis::ProtocolVersion;
-
 #[allow(unused_imports)]
-use super::types::{RedsumerError, RedsumerResult};
+use super::types::{CommunicationProtocol, RedsumerError, RedsumerResult};
 
 /// To hold credentials to authenticate in Redis, that are used when server requires it.
 #[derive(Debug, Clone)]
@@ -66,7 +64,7 @@ pub struct ClientArgs<'k, 'a> {
     host: &'a str,
     port: u16,
     db: i64,
-    protocol_version: ProtocolVersion,
+    protocol: CommunicationProtocol,
 }
 
 impl<'k, 'a> ClientArgs<'k, 'a> {
@@ -114,8 +112,8 @@ impl<'k, 'a> ClientArgs<'k, 'a> {
         self.db
     }
 
-    pub fn get_protocol_version(&self) -> ProtocolVersion {
-        self.protocol_version
+    pub fn get_protocol(&self) -> CommunicationProtocol {
+        self.protocol
     }
 
     /// Create a new instance of [`ClientArgs`].
@@ -149,14 +147,14 @@ impl<'k, 'a> ClientArgs<'k, 'a> {
         host: &'a str,
         port: u16,
         db: i64,
-        protocol_version: ProtocolVersion,
+        protocol: CommunicationProtocol,
     ) -> ClientArgs<'k, 'a> {
         ClientArgs {
             credentials,
             host,
             port,
             db,
-            protocol_version,
+            protocol,
         }
     }
 }
@@ -198,7 +196,7 @@ mod test_client {
         let db: i64 = 1;
 
         // Define the redis protocol version:
-        let protocol_version: ProtocolVersion = ProtocolVersion::RESP2;
+        let protocol_version: CommunicationProtocol = CommunicationProtocol::RESP2;
 
         // Create a new instance of ClientArgs with default port and db:
         let args: ClientArgs = ClientArgs::new(Some(credentials), host, port, db, protocol_version);
