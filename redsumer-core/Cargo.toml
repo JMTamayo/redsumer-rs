@@ -1,0 +1,22 @@
+[package]
+name = "redsumer-core"
+description = "Core functionalities for a scalable Redis Streams implementation"
+version = "0.1.0"
+edition = "2021"
+license-file = "../LICENSE"
+readme = "README.md"
+keywords = [
+    "redis",
+    "redis_streams",
+]
+homepage = "https://github.com/enerBit/redsumer-rs"
+repository = "https://github.com/enerBit/redsumer-rs"
+categories = [
+    "database-implementations",
+]
+authors = [
+    "Juan Manuel Tamayo <jmtamayog23@gmail.com>",
+]
+
+[dependencies]
+redis ={ version = "0.26.1", features = ["streams"] }

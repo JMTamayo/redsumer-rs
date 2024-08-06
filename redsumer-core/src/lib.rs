@@ -1,0 +1,2 @@
+//! redsumer-core
+mod core;
