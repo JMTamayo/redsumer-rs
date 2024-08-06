@@ -1,5 +1,12 @@
 [workspace]
 resolver="2"
 members = [
+	"redsumer-core",
     "redsumer-rs",
+]
+
+[workspace.metadata.publish]
+order = [
+	"redsumer-core",
+	"redsumer-rs",
 ]
