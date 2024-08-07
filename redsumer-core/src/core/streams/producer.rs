@@ -1,9 +1,9 @@
-use redis::{Commands, ToRedisArgs};
+use redis::{Commands, RedisResult, ToRedisArgs};
 
 #[allow(unused_imports)]
 use crate::types::{Id, RedsumerError, RedsumerResult};
 
-fn produce_from_map<C, K, M>(c: &mut C, key: K, map: M) -> RedsumerResult<Id>
+fn produce_from_map<C, K, M>(c: &mut C, key: K, map: M) -> RedisResult<Id>
 where
     C: Commands,
     K: ToRedisArgs,
@@ -12,7 +12,7 @@ where
     c.xadd_map(key, "*", map)
 }
 
-fn produce_from_items<C, K, F, V>(c: &mut C, key: K, items: &[(F, V)]) -> RedsumerResult<Id>
+fn produce_from_items<C, K, F, V>(c: &mut C, key: K, items: &[(F, V)]) -> RedisResult<Id>
 where
     C: Commands,
     K: ToRedisArgs,
