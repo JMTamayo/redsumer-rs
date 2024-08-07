@@ -1,3 +1,2 @@
+pub mod streams;
 pub mod connection;
-pub mod consumer;
-pub mod producer;
