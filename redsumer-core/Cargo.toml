@@ -3,6 +3,7 @@ name = "redsumer-core"
 description = "Core functionalities for a scalable Redis Streams implementation"
 version = "0.1.0"
 edition = "2021"
+publish = false
 license-file = "../LICENSE"
 readme = "README.md"
 keywords = [
@@ -20,6 +21,7 @@ authors = [
 
 [dependencies]
 redis ={ version = "0.26.1", features = ["streams"] }
+log = { version = "0.4.22" }
 
 [dev-dependencies]
 tokio = { version = "1.39.2", features = ["full"] }
