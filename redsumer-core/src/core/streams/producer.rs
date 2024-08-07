@@ -9,7 +9,7 @@ where
     K: ToRedisArgs,
     M: ToRedisArgs,
 {
-    c.xadd_map::<_, _, _, Id>(key, "*", map)
+    c.xadd_map(key, "*", map)
 }
 
 fn produce_from_items<C, K, F, V>(c: &mut C, key: K, items: &[(F, V)]) -> RedsumerResult<Id>
