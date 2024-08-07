@@ -50,7 +50,7 @@ mod test_verify_connection {
         let mut conn: MockRedisConnection = MockRedisConnection::new(vec![]);
 
         // Ping the server:
-        let ping_result: RedsumerResult<String> = ping(&mut conn);
+        let ping_result: RedsumerResult<String> = conn.ping();
 
         // Verify the connection to the server:
         assert!(ping_result.is_ok());
