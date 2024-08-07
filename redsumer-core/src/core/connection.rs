@@ -7,17 +7,11 @@ where
     C: Commands,
 {
     match c.check_connection() {
-		true => {
-			Ok("PONG".into())
-		}
-		false => {
-			Err(RedisError::from((
-				ErrorKind::ClientError,
-					"Connection Verification Error",
-					"The connection to the Redis server could not be verified. Please verify the client configuration or server availability".into(),
-				))
-			)
-		}
+		true => Ok("PONG".into()),
+		false => Err(RedisError::from((ErrorKind::ClientError,
+			"Connection Verification Error",
+			"The connection to the Redis server could not be verified. Please verify the client configuration or server availability".into(),
+		)))
 	}
 }
 
