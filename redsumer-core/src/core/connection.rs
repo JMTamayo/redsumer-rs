@@ -1,6 +1,7 @@
 use redis::{Commands, ErrorKind, RedisError, RedisResult};
 
-use crate::types::RedsumerResult;
+#[allow(unused_imports)]
+use crate::types::{RedsumerError, RedsumerResult};
 
 fn ping<C>(c: &mut C) -> RedisResult<String>
 where
@@ -23,7 +24,7 @@ pub trait VerifyConnection {
     /// - No arguments.
     ///
     /// # Returns:
-    /// A [`RedsumerResult`] with `()` if the connection was verified successfully. Otherwise, a [`RedsumerError`] is returned.
+    /// A [`RedsumerResult`] with a [`String`] equal to `PONG` if the connection was verified successfully. Otherwise, a [`RedsumerError`] is returned.
     fn ping(&mut self) -> RedsumerResult<String>;
 }
 
