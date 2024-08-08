@@ -1,6 +1,178 @@
-use redis::streams::StreamId;
+use redis::{streams::StreamId, ToRedisArgs};
 
 use crate::types::Id;
+
+/// Options used to configure the consume operation when reading new messages from a Redis stream.
+#[derive(Debug, Clone)]
+pub struct ReadNewMessagesOptions {
+    /// The number of new messages to read from the stream.
+    count: usize,
+
+    /// The block time [seconds] to wait for new messages to arrive in the stream.
+    block: usize,
+}
+
+impl ReadNewMessagesOptions {
+    /// Get the number of new messages to read from the stream.
+    ///
+    /// # Arguments:
+    /// *No arguments.*
+    ///
+    /// # Returns:
+    /// The number of new messages to read from the stream.
+    pub fn get_count(&self) -> usize {
+        self.count
+    }
+
+    /// Get the block time to wait for new messages to arrive in the stream.
+    ///
+    /// # Arguments:
+    /// *No arguments.*
+    ///
+    /// # Returns:
+    /// The block time [seconds] to wait for new messages to arrive in the stream.
+    pub fn get_block(&self) -> usize {
+        self.block
+    }
+
+    /// Create a new instance of [`ReadNewMessagesOptions`].
+    ///
+    /// # Arguments:
+    /// - **count**: The number of new messages to read from the stream.
+    /// - **block**: The block time [seconds] to wait for new messages to arrive in the stream.
+    ///
+    /// # Returns:
+    /// A new instance of [`ReadNewMessagesOptions`] with the given count and block time.
+    pub fn new(count: usize, block: usize) -> Self {
+        ReadNewMessagesOptions { count, block }
+    }
+}
+
+/// Options used to configure the consume operation when reading pending messages from a Redis stream.
+#[derive(Debug, Clone)]
+pub struct ReadPendingMessagesOptions<ID>
+where
+    ID: ToRedisArgs,
+{
+    /// The number of pending messages to read from the stream.
+    count: usize,
+
+    /// The latest pending message ID to start reading from.
+    latest_pending_message_id: ID,
+}
+
+impl<ID> ReadPendingMessagesOptions<ID>
+where
+    ID: ToRedisArgs,
+{
+    /// Get the number of pending messages to read from the stream.
+    ///
+    /// # Arguments:
+    /// *No arguments.*
+    ///
+    /// # Returns:
+    /// The number of pending messages to read from the stream.
+    pub fn get_count(&self) -> usize {
+        self.count
+    }
+
+    /// Get the latest pending message ID to start reading from.
+    ///
+    /// # Arguments:
+    /// *No arguments.*
+    ///
+    /// # Returns:
+    /// The latest pending message ID to start reading from.
+    pub fn get_latest_pending_message_id(&self) -> &ID {
+        &self.latest_pending_message_id
+    }
+
+    /// Create a new instance of [`ReadPendingMessagesOptions`].
+    ///
+    /// # Arguments:
+    /// - **count**: The number of pending messages to read from the stream.
+    /// - **latest_pending_message_id**: The latest pending message [`Id`] to start reading from.
+    ///
+    /// # Returns:
+    /// A new instance of [`ReadPendingMessagesOptions`] with the given count and latest pending message ID.
+    pub fn new(count: usize, latest_pending_message_id: ID) -> Self {
+        ReadPendingMessagesOptions {
+            count,
+            latest_pending_message_id,
+        }
+    }
+}
+
+/// Options used to configure the consume operation when claiming messages from a Redis stream.
+#[derive(Debug, Clone)]
+pub struct ClaimMessagesOptions<ID>
+where
+    ID: ToRedisArgs,
+{
+    /// The number of messages to claim from the stream.
+    count: usize,
+
+    /// The min idle time [milliseconds] to claim the messages.
+    min_idle_time: usize,
+
+    /// The latest pending message ID to start claiming from.
+    next_id_to_claim: ID,
+}
+
+impl<ID> ClaimMessagesOptions<ID>
+where
+    ID: ToRedisArgs,
+{
+    /// Get the number of messages to claim from the stream.
+    ///
+    /// # Arguments:
+    /// *No arguments.*
+    ///
+    /// # Returns:
+    /// The number of messages to claim from the stream.
+    pub fn get_count(&self) -> usize {
+        self.count
+    }
+
+    /// Get the min idle time to claim the messages.
+    ///
+    /// # Arguments:
+    /// *No arguments.*
+    ///
+    /// # Returns:
+    /// The min idle time [milliseconds] to claim the messages.
+    pub fn get_min_idle_time(&self) -> usize {
+        self.min_idle_time
+    }
+
+    /// Get the latest pending message ID to start claiming from.
+    ///
+    /// # Arguments:
+    /// *No arguments.*
+    ///
+    /// # Returns:
+    /// The latest pending message ID to start claiming from.
+    pub fn get_next_id_to_claim(&self) -> &ID {
+        &self.next_id_to_claim
+    }
+
+    /// Create a new instance of [`ClaimMessagesOptions`].
+    ///
+    /// # Arguments:
+    /// - **count**: The number of messages to claim from the stream.
+    /// - **min_idle_time**: The min idle time [milliseconds] to claim the messages.
+    /// - **next_id_to_claim**: The latest pending message [`Id`] to start claiming from.
+    ///
+    /// # Returns:
+    /// A new instance of [`ClaimMessagesOptions`] with the given count, min idle time and latest pending message ID.
+    pub fn new(count: usize, min_idle_time: usize, next_id_to_claim: ID) -> Self {
+        ClaimMessagesOptions {
+            count,
+            min_idle_time,
+            next_id_to_claim,
+        }
+    }
+}
 
 /// Reply type used to represents the new messages retrieved from a Redis stream.
 #[derive(Debug, Clone)]
