@@ -78,7 +78,7 @@ where
 mod test_produce_from_map {
     use std::collections::BTreeMap;
 
-    use redis::{cmd, ErrorKind};
+    use redis::{cmd, ErrorKind, Value};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
@@ -94,16 +94,18 @@ mod test_produce_from_map {
         map.insert("field", "value");
 
         // Create a mock connection:
-        let mut conn: MockRedisConnection = MockRedisConnection::new(vec![MockCmd::new::<_, Id>(
-            cmd("XADD").arg(key).arg(id).arg(map.to_owned()),
-            Ok(id.to_string()),
-        )]);
+        let mut conn: MockRedisConnection =
+            MockRedisConnection::new(vec![MockCmd::new::<_, Value>(
+                cmd("XADD").arg(key).arg(id).arg(map.to_owned()),
+                Ok(Value::SimpleString("1-0".to_string())),
+            )]);
 
         // Produce the message:
         let result: RedsumerResult<Id> = conn.produce_from_map(key, map);
 
         // Verify the result:
         assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "1-0");
     }
 
     #[test]
@@ -117,14 +119,15 @@ mod test_produce_from_map {
         map.insert("field", "value");
 
         // Create a mock connection:
-        let mut conn: MockRedisConnection = MockRedisConnection::new(vec![MockCmd::new::<_, Id>(
-            cmd("XADD").arg(key).arg(id).arg(map.to_owned()),
-            Err(RedsumerError::from((
-                ErrorKind::ResponseError,
-                "XADD Error",
-                "XADD command failed".to_string(),
-            ))),
-        )]);
+        let mut conn: MockRedisConnection =
+            MockRedisConnection::new(vec![MockCmd::new::<_, Value>(
+                cmd("XADD").arg(key).arg(id).arg(map.to_owned()),
+                Err(RedsumerError::from((
+                    ErrorKind::ResponseError,
+                    "XADD Error",
+                    "XADD command failed".to_string(),
+                ))),
+            )]);
 
         // Produce the message:
         let result: RedsumerResult<Id> = conn.produce_from_map(key, map);
@@ -136,7 +139,7 @@ mod test_produce_from_map {
 
 #[cfg(test)]
 mod test_produce_from_items {
-    use redis::{cmd, ErrorKind};
+    use redis::{cmd, ErrorKind, Value};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
@@ -150,16 +153,18 @@ mod test_produce_from_items {
         let items: Vec<(&str, u8)> = vec![("number", 3), ("double", 6)];
 
         // Create a mock connection:
-        let mut conn: MockRedisConnection = MockRedisConnection::new(vec![MockCmd::new::<_, Id>(
-            cmd("XADD").arg(key).arg("*").arg(&items),
-            Ok("0".to_string()),
-        )]);
+        let mut conn: MockRedisConnection =
+            MockRedisConnection::new(vec![MockCmd::new::<_, Value>(
+                cmd("XADD").arg(key).arg("*").arg(&items),
+                Ok(Value::SimpleString("1-0".to_string())),
+            )]);
 
         // Produce the message:
         let result: RedsumerResult<Id> = conn.produce_from_items(key, &items);
 
         // Verify the result:
         assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "1-0");
     }
 
     #[test]
@@ -172,14 +177,15 @@ mod test_produce_from_items {
         let items: Vec<(&str, &str)> = vec![("field", "value")];
 
         // Create a mock connection:
-        let mut conn: MockRedisConnection = MockRedisConnection::new(vec![MockCmd::new::<_, Id>(
-            cmd("XADD").arg(key).arg(id).arg(&items),
-            Err(RedsumerError::from((
-                ErrorKind::ResponseError,
-                "XADD Error",
-                "XADD command failed".to_string(),
-            ))),
-        )]);
+        let mut conn: MockRedisConnection =
+            MockRedisConnection::new(vec![MockCmd::new::<_, Value>(
+                cmd("XADD").arg(key).arg(id).arg(&items),
+                Err(RedsumerError::from((
+                    ErrorKind::ResponseError,
+                    "XADD Error",
+                    "XADD command failed".to_string(),
+                ))),
+            )]);
 
         // Produce the message:
         let result: RedsumerResult<Id> = conn.produce_from_items(key, &items);
