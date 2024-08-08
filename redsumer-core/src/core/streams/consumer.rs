@@ -1,7 +1,11 @@
 use log::debug;
-use redis::{Commands, RedisResult, ToRedisArgs};
+use redis::{
+    streams::{StreamAutoClaimOptions, StreamAutoClaimReply, StreamReadOptions, StreamReadReply},
+    Commands, RedisResult, ToRedisArgs,
+};
 
-use crate::types::RedsumerResult;
+#[allow(unused_imports)]
+use crate::types::{RedsumerError, RedsumerResult};
 
 fn create_consumer_group<C, K, G, ID>(
     conn: &mut C,
@@ -29,6 +33,80 @@ where
             }
         }
     }
+}
+
+fn read_new_messages<C, K, G, N>(
+    conn: &mut C,
+    key: K,
+    group: G,
+    consumer: N,
+    count: usize,
+    block: usize,
+) -> RedisResult<StreamReadReply>
+where
+    C: Commands,
+    K: ToRedisArgs,
+    G: ToRedisArgs,
+    N: ToRedisArgs,
+{
+    conn.xread_options(
+        &[key],
+        &[">"],
+        &StreamReadOptions::default()
+            .group(group, consumer)
+            .count(count)
+            .block(block),
+    )
+}
+
+fn read_own_pending_messages<C, K, G, N, ID>(
+    conn: &mut C,
+    key: K,
+    group: G,
+    consumer: N,
+    since_id: ID,
+    count: usize,
+) -> RedisResult<StreamReadReply>
+where
+    C: Commands,
+    K: ToRedisArgs,
+    G: ToRedisArgs,
+    N: ToRedisArgs,
+    ID: ToRedisArgs,
+{
+    conn.xread_options(
+        &[key],
+        &[since_id],
+        &StreamReadOptions::default()
+            .group(group, consumer)
+            .count(count),
+    )
+}
+
+fn claim_pending_messages<C, K, G, N, ID>(
+    conn: &mut C,
+    key: &K,
+    group: &G,
+    consumer: &N,
+    since_id: &ID,
+    min_idle_time: usize,
+    count: usize,
+) -> RedisResult<StreamAutoClaimReply>
+where
+    C: Commands,
+    K: ToRedisArgs,
+    G: ToRedisArgs,
+    N: ToRedisArgs,
+    ID: ToRedisArgs,
+{
+    conn.xautoclaim_options(
+        key,
+        group,
+        consumer,
+        min_idle_time,
+        since_id,
+        StreamAutoClaimOptions::default().count(count),
+    )
 }
 
 /// A trait that bundles methods for consuming messages from a Redis stream
