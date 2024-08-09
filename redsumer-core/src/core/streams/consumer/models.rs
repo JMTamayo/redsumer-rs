@@ -411,6 +411,7 @@ pub enum ConsumeReplyRepr {
 }
 
 /// Reply type used to represent the response returned by the consume operation. The reply can be of different types, so it is represented by the [`ConsumeReplyRepr`].
+#[derive(Debug, Clone)]
 pub struct ConsumeReply {
     /// The reply representation.
     repr: ConsumeReplyRepr,
@@ -1008,5 +1009,54 @@ mod test_consume_reply {
         assert!(!consume_reply.contains_pending_messages());
         assert!(!consume_reply.contains_claimed_messages());
         assert!(consume_reply.is_empty());
+    }
+
+    #[test]
+    fn test_consume_reply_clone() {
+        // Define the messages list:
+        let id: Id = "0-0".to_string();
+        let messages: Vec<StreamId> = vec![StreamId {
+            id: id.to_owned(),
+            map: HashMap::new(),
+        }];
+
+        // Create a new messages reply:
+        let new_messages_reply: NewMessagesReply = NewMessagesReply::build(messages.clone());
+
+        // Create a consume reply from the new messages reply:
+        let consume_reply: ConsumeReply =
+            ConsumeReply::from(ConsumeReplyRepr::New(new_messages_reply.clone()));
+
+        // Clone the consume reply:
+        let cloned_consume_reply: ConsumeReply = consume_reply.clone();
+
+        // Check the cloned consume reply parameters:
+        assert!(cloned_consume_reply.contains_new_messages());
+        assert!(!cloned_consume_reply.contains_pending_messages());
+        assert!(!cloned_consume_reply.contains_claimed_messages());
+        assert!(!cloned_consume_reply.is_empty());
+    }
+
+    #[test]
+    fn test_consume_reply_debug() {
+        // Define the messages list:
+        let id: Id = "0-0".to_string();
+        let messages: Vec<StreamId> = vec![StreamId {
+            id: id.to_owned(),
+            map: HashMap::new(),
+        }];
+
+        // Create a new messages reply:
+        let new_messages_reply: NewMessagesReply = NewMessagesReply::build(messages.clone());
+
+        // Create a consume reply from the new messages reply:
+        let consume_reply: ConsumeReply =
+            ConsumeReply::from(ConsumeReplyRepr::New(new_messages_reply.clone()));
+
+        // Check the consume reply debug representation:
+        assert_eq!(
+			format!("{:?}", consume_reply),
+			"ConsumeReply { repr: New(NewMessagesReply { messages: [StreamId { id: \"0-0\", map: {} }] }) }"
+		);
     }
 }
