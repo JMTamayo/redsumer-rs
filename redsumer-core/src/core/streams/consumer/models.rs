@@ -427,10 +427,586 @@ impl ConsumeReply {
     pub fn get_repr(&self) -> &ConsumeReplyRepr {
         &self.repr
     }
+
+    /// Check if the reply contains new messages.
+    ///
+    /// # Arguments:
+    /// *No arguments.*
+    ///
+    /// # Returns:
+    /// A [`bool`] indicating if the reply contains new messages.
+    pub fn contains_new_messages(&self) -> bool {
+        match self.get_repr() {
+            ConsumeReplyRepr::New(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Check if the reply contains pending messages.
+    ///
+    /// # Arguments:
+    /// *No arguments.*
+    ///
+    /// # Returns:
+    /// A [`bool`] indicating if the reply contains pending messages.
+    pub fn contains_pending_messages(&self) -> bool {
+        match self.get_repr() {
+            ConsumeReplyRepr::Pending(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Check if the reply contains claimed messages.
+    ///
+    /// # Arguments:
+    /// *No arguments.*
+    ///
+    /// # Returns:
+    /// A [`bool`] indicating if the reply contains claimed messages.
+    pub fn contains_claimed_messages(&self) -> bool {
+        match self.get_repr() {
+            ConsumeReplyRepr::Claimed(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Check if the reply is empty.
+    ///
+    /// # Arguments:
+    /// *No arguments.*
+    ///
+    /// # Returns:
+    /// A [`bool`] indicating if the reply is empty.
+    pub fn is_empty(&self) -> bool {
+        match self.get_repr() {
+            ConsumeReplyRepr::Empty => true,
+            _ => false,
+        }
+    }
 }
 
 impl From<ConsumeReplyRepr> for ConsumeReply {
     fn from(repr: ConsumeReplyRepr) -> Self {
         ConsumeReply { repr }
+    }
+}
+
+#[cfg(test)]
+mod test_consume_operation_options {
+    use super::*;
+
+    #[test]
+    fn test_read_new_messages_options_builder() {
+        // Define the options parameters:
+        let count: usize = 10;
+        let block: usize = 5;
+
+        // Create the options instance:
+        let options: ReadNewMessagesOptions = ReadNewMessagesOptions::new(count, block);
+
+        // Check the options parameters:
+        assert_eq!(options.get_count(), count);
+        assert_eq!(options.get_block(), block);
+    }
+
+    #[test]
+    fn test_read_new_messages_clone() {
+        // Define the options parameters:
+        let count: usize = 10;
+        let block: usize = 5;
+
+        // Create the options instance:
+        let options: ReadNewMessagesOptions = ReadNewMessagesOptions::new(count, block);
+
+        // Clone the options instance:
+        let cloned_options: ReadNewMessagesOptions = options.clone();
+
+        // Check the cloned options parameters:
+        assert_eq!(cloned_options.get_count(), count);
+        assert_eq!(cloned_options.get_block(), block);
+    }
+
+    #[test]
+    fn test_read_new_messages_debug() {
+        // Define the options parameters:
+        let count: usize = 10;
+        let block: usize = 5;
+
+        // Create the options instance:
+        let options: ReadNewMessagesOptions = ReadNewMessagesOptions::new(count, block);
+
+        // Check the options debug representation:
+        assert_eq!(
+            format!("{:?}", options),
+            "ReadNewMessagesOptions { count: 10, block: 5 }"
+        );
+    }
+
+    #[test]
+    fn test_read_pending_messages_options_builder() {
+        // Define the options parameters:
+        let count: usize = 10;
+        let latest_pending_message_id: Id = Id::from("0-0");
+
+        // Create the options instance:
+        let options: ReadPendingMessagesOptions<Id> =
+            ReadPendingMessagesOptions::new(count, latest_pending_message_id.to_owned());
+
+        // Check the options parameters:
+        assert_eq!(options.get_count(), count);
+        assert!(options
+            .get_latest_pending_message_id()
+            .eq(&latest_pending_message_id));
+    }
+
+    #[test]
+    fn test_read_pending_messages_clone() {
+        // Define the options parameters:
+        let count: usize = 10;
+        let latest_pending_message_id: Id = Id::from("0-0");
+
+        // Create the options instance:
+        let options: ReadPendingMessagesOptions<Id> =
+            ReadPendingMessagesOptions::new(count, latest_pending_message_id.to_owned());
+
+        // Clone the options instance:
+        let cloned_options: ReadPendingMessagesOptions<Id> = options.clone();
+
+        // Check the cloned options parameters:
+        assert_eq!(cloned_options.get_count(), count);
+        assert!(cloned_options
+            .get_latest_pending_message_id()
+            .eq(&latest_pending_message_id));
+    }
+
+    #[test]
+    fn test_read_pending_messages_debug() {
+        // Define the options parameters:
+        let count: usize = 10;
+        let latest_pending_message_id: Id = Id::from("0-0");
+
+        // Create the options instance:
+        let options: ReadPendingMessagesOptions<Id> =
+            ReadPendingMessagesOptions::new(count, latest_pending_message_id);
+
+        // Check the options debug representation:
+        assert_eq!(
+            format!("{:?}", options),
+            "ReadPendingMessagesOptions { count: 10, latest_pending_message_id: \"0-0\" }"
+        );
+    }
+
+    #[test]
+    fn test_claim_messages_options_builder() {
+        // Define the options parameters:
+        let count: usize = 10;
+        let min_idle_time: usize = 1000;
+        let next_id_to_claim: Id = Id::from("0-0");
+
+        // Create the options instance:
+        let options: ClaimMessagesOptions<Id> =
+            ClaimMessagesOptions::new(count, min_idle_time, next_id_to_claim.to_owned());
+
+        // Check the options parameters:
+        assert_eq!(options.get_count(), count);
+        assert_eq!(options.get_min_idle_time(), min_idle_time);
+        assert!(options.get_next_id_to_claim().eq(&next_id_to_claim));
+    }
+
+    #[test]
+    fn test_claim_messages_clone() {
+        // Define the options parameters:
+        let count: usize = 10;
+        let min_idle_time: usize = 1000;
+        let next_id_to_claim: Id = Id::from("0-0");
+
+        // Create the options instance:
+        let options: ClaimMessagesOptions<Id> =
+            ClaimMessagesOptions::new(count, min_idle_time, next_id_to_claim.to_owned());
+
+        // Clone the options instance:
+        let cloned_options: ClaimMessagesOptions<Id> = options.clone();
+
+        // Check the cloned options parameters:
+        assert_eq!(cloned_options.get_count(), count);
+        assert_eq!(cloned_options.get_min_idle_time(), min_idle_time);
+        assert!(cloned_options.get_next_id_to_claim().eq(&next_id_to_claim));
+    }
+
+    #[test]
+    fn test_claim_messages_debug() {
+        // Define the options parameters:
+        let count: usize = 10;
+        let min_idle_time: usize = 1000;
+        let next_id_to_claim: Id = Id::from("0-0");
+
+        // Create the options instance:
+        let options: ClaimMessagesOptions<Id> =
+            ClaimMessagesOptions::new(count, min_idle_time, next_id_to_claim);
+
+        // Check the options debug representation:
+        assert_eq!(
+            format!("{:?}", options),
+            "ClaimMessagesOptions { count: 10, min_idle_time: 1000, next_id_to_claim: \"0-0\" }"
+        );
+    }
+}
+
+#[cfg(test)]
+mod test_new_messages_reply {
+    use std::collections::HashMap;
+
+    use super::*;
+
+    #[test]
+    fn test_new_messages_reply_empty() {
+        // Create an empty new messages reply:
+        let reply: NewMessagesReply = NewMessagesReply::empty();
+
+        // Check the reply parameters:
+        assert!(reply.get_messages().is_empty());
+        assert!(reply.is_empty());
+    }
+
+    #[test]
+    fn test_new_messages_reply_builder() {
+        // Define the messages list:
+        let id: Id = "0-0".to_string();
+        let messages: Vec<StreamId> = vec![StreamId {
+            id: id.to_owned(),
+            map: HashMap::new(),
+        }];
+
+        // Create a new messages reply:
+        let reply: NewMessagesReply = NewMessagesReply::build(messages.clone());
+
+        // Check the reply parameters:
+        assert!(!reply.is_empty());
+        assert!(reply.get_messages().len().eq(&1));
+
+        assert!(reply.get_messages()[0].id.eq(&id));
+        assert!(reply.get_messages()[0].map.is_empty());
+    }
+
+    #[test]
+    fn test_new_messages_reply_clone() {
+        // Define the messages list:
+        let id: Id = "0-0".to_string();
+        let messages: Vec<StreamId> = vec![StreamId {
+            id: id.to_owned(),
+            map: HashMap::new(),
+        }];
+
+        // Create a new messages reply:
+        let reply: NewMessagesReply = NewMessagesReply::build(messages.clone());
+
+        // Clone the new messages reply:
+        let cloned_reply: NewMessagesReply = reply.clone();
+
+        // Check the cloned reply parameters:
+        assert!(!cloned_reply.is_empty());
+        assert!(cloned_reply.get_messages().len().eq(&1));
+
+        assert!(cloned_reply.get_messages()[0].id.eq(&id));
+        assert!(cloned_reply.get_messages()[0].map.is_empty());
+    }
+
+    #[test]
+    fn test_new_messages_reply_debug() {
+        // Define the messages list:
+        let id: Id = "0-0".to_string();
+        let messages: Vec<StreamId> = vec![StreamId {
+            id: id.to_owned(),
+            map: HashMap::new(),
+        }];
+
+        // Create a new messages reply:
+        let reply: NewMessagesReply = NewMessagesReply::build(messages.clone());
+
+        // Check the reply debug representation:
+        assert_eq!(
+            format!("{:?}", reply),
+            "NewMessagesReply { messages: [StreamId { id: \"0-0\", map: {} }] }"
+        );
+    }
+}
+
+#[cfg(test)]
+mod test_pending_messages_reply {
+    use std::collections::HashMap;
+
+    use super::*;
+
+    #[test]
+    fn test_pending_messages_reply_empty() {
+        // Create an empty pending messages reply:
+        let reply: PendingMessagesReply = PendingMessagesReply::empty();
+
+        // Check the reply parameters:
+        assert!(reply.get_messages().is_empty());
+        assert!(reply.get_latest_pending_message_id().is_none());
+        assert!(reply.is_empty());
+    }
+
+    #[test]
+    fn test_pending_messages_reply_builder() {
+        // Define the messages list:
+        let id: Id = "0-0".to_string();
+        let messages: Vec<StreamId> = vec![StreamId {
+            id: id.to_owned(),
+            map: HashMap::new(),
+        }];
+
+        // Create a pending messages reply:
+        let reply: PendingMessagesReply =
+            PendingMessagesReply::build(messages.clone(), Some(id.clone()));
+
+        // Check the reply parameters:
+        assert!(!reply.is_empty());
+        assert!(reply.get_messages().len().eq(&1));
+
+        assert!(reply.get_messages()[0].id.eq(&id));
+        assert!(reply.get_messages()[0].map.is_empty());
+
+        assert!(reply.get_latest_pending_message_id().is_some());
+        assert!(reply
+            .get_latest_pending_message_id()
+            .to_owned()
+            .unwrap()
+            .eq(&id));
+    }
+
+    #[test]
+    fn test_pending_messages_reply_clone() {
+        // Define the messages list:
+        let id: Id = "0-0".to_string();
+        let messages: Vec<StreamId> = vec![StreamId {
+            id: id.to_owned(),
+            map: HashMap::new(),
+        }];
+
+        // Create a pending messages reply:
+        let reply: PendingMessagesReply =
+            PendingMessagesReply::build(messages.clone(), Some(id.clone()));
+
+        // Clone the pending messages reply:
+        let cloned_reply: PendingMessagesReply = reply.clone();
+
+        // Check the cloned reply parameters:
+        assert!(!cloned_reply.is_empty());
+        assert!(cloned_reply.get_messages().len().eq(&1));
+
+        assert!(cloned_reply.get_messages()[0].id.eq(&id));
+        assert!(cloned_reply.get_messages()[0].map.is_empty());
+
+        assert!(cloned_reply.get_latest_pending_message_id().is_some());
+        assert!(cloned_reply
+            .get_latest_pending_message_id()
+            .to_owned()
+            .unwrap()
+            .eq(&id));
+    }
+
+    #[test]
+    fn test_pending_messages_reply_debug() {
+        // Define the messages list:
+        let id: Id = "0-0".to_string();
+        let messages: Vec<StreamId> = vec![StreamId {
+            id: id.to_owned(),
+            map: HashMap::new(),
+        }];
+
+        // Create a pending messages reply:
+        let reply: PendingMessagesReply =
+            PendingMessagesReply::build(messages.clone(), Some(id.clone()));
+
+        // Check the reply debug representation:
+        assert_eq!(
+			format!("{:?}", reply),
+			"PendingMessagesReply { messages: [StreamId { id: \"0-0\", map: {} }], latest_pending_message_id: Some(\"0-0\") }"
+		);
+    }
+}
+
+#[cfg(test)]
+mod test_claimed_messages_reply {
+    use std::collections::HashMap;
+
+    use super::*;
+
+    #[test]
+    fn test_claimed_messages_reply_empty() {
+        // Create an empty claimed messages reply:
+        let reply: ClaimedMessagesReply = ClaimedMessagesReply::empty();
+
+        // Check the reply parameters:
+        assert!(reply.get_messages().is_empty());
+        assert!(reply.get_next_id_to_claim().is_none());
+        assert!(reply.is_empty());
+    }
+
+    #[test]
+    fn test_claimed_messages_reply_builder() {
+        // Define the messages list:
+        let id: Id = "0-0".to_string();
+        let messages: Vec<StreamId> = vec![StreamId {
+            id: id.to_owned(),
+            map: HashMap::new(),
+        }];
+
+        // Create a claimed messages reply:
+        let reply: ClaimedMessagesReply =
+            ClaimedMessagesReply::build(messages.clone(), Some(id.clone()));
+
+        // Check the reply parameters:
+        assert!(!reply.is_empty());
+        assert!(reply.get_messages().len().eq(&1));
+
+        assert!(reply.get_messages()[0].id.eq(&id));
+        assert!(reply.get_messages()[0].map.is_empty());
+
+        assert!(reply.get_next_id_to_claim().is_some());
+        assert!(reply.get_next_id_to_claim().to_owned().unwrap().eq(&id));
+    }
+
+    #[test]
+    fn test_claimed_messages_reply_clone() {
+        // Define the messages list:
+        let id: Id = "0-0".to_string();
+        let messages: Vec<StreamId> = vec![StreamId {
+            id: id.to_owned(),
+            map: HashMap::new(),
+        }];
+
+        // Create a claimed messages reply:
+        let reply: ClaimedMessagesReply =
+            ClaimedMessagesReply::build(messages.clone(), Some(id.clone()));
+
+        // Clone the claimed messages reply:
+        let cloned_reply: ClaimedMessagesReply = reply.clone();
+
+        // Check the cloned reply parameters:
+        assert!(!cloned_reply.is_empty());
+        assert!(cloned_reply.get_messages().len().eq(&1));
+
+        assert!(cloned_reply.get_messages()[0].id.eq(&id));
+        assert!(cloned_reply.get_messages()[0].map.is_empty());
+
+        assert!(cloned_reply.get_next_id_to_claim().is_some());
+        assert!(cloned_reply
+            .get_next_id_to_claim()
+            .to_owned()
+            .unwrap()
+            .eq(&id));
+    }
+
+    #[test]
+    fn test_claimed_messages_reply_debug() {
+        // Define the messages list:
+        let id: Id = "0-0".to_string();
+        let messages: Vec<StreamId> = vec![StreamId {
+            id: id.to_owned(),
+            map: HashMap::new(),
+        }];
+
+        // Create a claimed messages reply:
+        let reply: ClaimedMessagesReply =
+            ClaimedMessagesReply::build(messages.clone(), Some(id.clone()));
+
+        // Check the reply debug representation:
+        assert_eq!(
+			format!("{:?}", reply),
+			"ClaimedMessagesReply { messages: [StreamId { id: \"0-0\", map: {} }], next_id_to_claim: Some(\"0-0\") }"
+		);
+    }
+}
+
+#[cfg(test)]
+mod test_consume_reply {
+    use std::collections::HashMap;
+
+    use super::*;
+
+    #[test]
+    fn test_consume_reply_from_new_messages_reply() {
+        // Define the messages list:
+        let id: Id = "0-0".to_string();
+        let messages: Vec<StreamId> = vec![StreamId {
+            id: id.to_owned(),
+            map: HashMap::new(),
+        }];
+
+        // Create a new messages reply:
+        let new_messages_reply: NewMessagesReply = NewMessagesReply::build(messages.clone());
+
+        // Create a consume reply from the new messages reply:
+        let consume_reply: ConsumeReply =
+            ConsumeReply::from(ConsumeReplyRepr::New(new_messages_reply.clone()));
+
+        // Check the consume reply parameters:
+        assert!(consume_reply.contains_new_messages());
+        assert!(!consume_reply.contains_pending_messages());
+        assert!(!consume_reply.contains_claimed_messages());
+        assert!(!consume_reply.is_empty());
+    }
+
+    #[test]
+    fn test_consume_reply_from_pending_messages_reply() {
+        // Define the messages list:
+        let id: Id = "0-0".to_string();
+        let messages: Vec<StreamId> = vec![StreamId {
+            id: id.to_owned(),
+            map: HashMap::new(),
+        }];
+
+        // Create a pending messages reply:
+        let pending_messages_reply: PendingMessagesReply =
+            PendingMessagesReply::build(messages.clone(), Some(id.clone()));
+
+        // Create a consume reply from the pending messages reply:
+        let consume_reply: ConsumeReply =
+            ConsumeReply::from(ConsumeReplyRepr::Pending(pending_messages_reply.clone()));
+
+        // Check the consume reply parameters:
+        assert!(!consume_reply.contains_new_messages());
+        assert!(consume_reply.contains_pending_messages());
+        assert!(!consume_reply.contains_claimed_messages());
+        assert!(!consume_reply.is_empty());
+    }
+
+    #[test]
+    fn test_consume_reply_from_claimed_messages_reply() {
+        // Define the messages list:
+        let id: Id = "0-0".to_string();
+        let messages: Vec<StreamId> = vec![StreamId {
+            id: id.to_owned(),
+            map: HashMap::new(),
+        }];
+
+        // Create a claimed messages reply:
+        let claimed_messages_reply: ClaimedMessagesReply =
+            ClaimedMessagesReply::build(messages.clone(), Some(id.clone()));
+
+        // Create a consume reply from the claimed messages reply:
+        let consume_reply: ConsumeReply =
+            ConsumeReply::from(ConsumeReplyRepr::Claimed(claimed_messages_reply.clone()));
+
+        // Check the consume reply parameters:
+        assert!(!consume_reply.contains_new_messages());
+        assert!(!consume_reply.contains_pending_messages());
+        assert!(consume_reply.contains_claimed_messages());
+        assert!(!consume_reply.is_empty());
+    }
+
+    #[test]
+    fn test_consume_reply_from_empty() {
+        // Create an empty consume reply:
+        let consume_reply: ConsumeReply = ConsumeReply::from(ConsumeReplyRepr::Empty);
+
+        // Check the consume reply parameters:
+        assert!(!consume_reply.contains_new_messages());
+        assert!(!consume_reply.contains_pending_messages());
+        assert!(!consume_reply.contains_claimed_messages());
+        assert!(consume_reply.is_empty());
     }
 }
