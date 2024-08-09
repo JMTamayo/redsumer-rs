@@ -437,10 +437,7 @@ impl ConsumeReply {
     /// # Returns:
     /// A [`bool`] indicating if the reply contains new messages.
     pub fn contains_new_messages(&self) -> bool {
-        match self.get_repr() {
-            ConsumeReplyRepr::New(_) => true,
-            _ => false,
-        }
+        matches!(self.get_repr(), ConsumeReplyRepr::New(_))
     }
 
     /// Check if the reply contains pending messages.
@@ -451,10 +448,7 @@ impl ConsumeReply {
     /// # Returns:
     /// A [`bool`] indicating if the reply contains pending messages.
     pub fn contains_pending_messages(&self) -> bool {
-        match self.get_repr() {
-            ConsumeReplyRepr::Pending(_) => true,
-            _ => false,
-        }
+        matches!(self.get_repr(), ConsumeReplyRepr::Pending(_))
     }
 
     /// Check if the reply contains claimed messages.
@@ -465,10 +459,7 @@ impl ConsumeReply {
     /// # Returns:
     /// A [`bool`] indicating if the reply contains claimed messages.
     pub fn contains_claimed_messages(&self) -> bool {
-        match self.get_repr() {
-            ConsumeReplyRepr::Claimed(_) => true,
-            _ => false,
-        }
+        matches!(self.get_repr(), ConsumeReplyRepr::Claimed(_))
     }
 
     /// Check if the reply is empty.
@@ -479,9 +470,50 @@ impl ConsumeReply {
     /// # Returns:
     /// A [`bool`] indicating if the reply is empty.
     pub fn is_empty(&self) -> bool {
+        matches!(self.get_repr(), ConsumeReplyRepr::Empty)
+    }
+
+    /// Get the list of messages retrieved from the stream.
+    ///
+    /// # Arguments:
+    /// *No arguments.*
+    ///
+    /// # Returns:
+    /// A [`Vec`] of [`StreamId`] instances representing the messages retrieved from the stream. If the reply is empty, it will return `None`. If the reply is not empty, it will return the list of messages.
+    pub fn get_messages(&self) -> Vec<StreamId> {
         match self.get_repr() {
-            ConsumeReplyRepr::Empty => true,
-            _ => false,
+            ConsumeReplyRepr::New(reply) => reply.get_messages().to_owned(),
+            ConsumeReplyRepr::Pending(reply) => reply.get_messages().to_owned(),
+            ConsumeReplyRepr::Claimed(reply) => reply.get_messages().to_owned(),
+            _ => Vec::new(),
+        }
+    }
+
+    /// Get the [`Id`] of the latest pending message. If the reply is empty or does not contain pending messages, it will return `None`.
+    ///
+    /// # Arguments:
+    /// *No arguments.*
+    ///
+    /// # Returns:
+    /// The [`Id`] of the latest pending message.
+    pub fn get_latest_pending_message_id(&self) -> Option<Id> {
+        match self.get_repr() {
+            ConsumeReplyRepr::Pending(reply) => reply.get_latest_pending_message_id().to_owned(),
+            _ => None,
+        }
+    }
+
+    /// Get the [`Id`] of the next message to claim. If the reply is empty or does not contain claimed messages, it will return `None`.
+    ///
+    /// # Arguments:
+    /// *No arguments.*
+    ///
+    /// # Returns:
+    /// The [`Id`] of the next message to claim.
+    pub fn get_next_id_to_claim(&self) -> Option<Id> {
+        match self.get_repr() {
+            ConsumeReplyRepr::Claimed(reply) => reply.get_next_id_to_claim().to_owned(),
+            _ => None,
         }
     }
 }
@@ -929,7 +961,7 @@ mod test_consume_reply {
     use super::*;
 
     #[test]
-    fn test_consume_reply_from_new_messages_reply() {
+    fn test_consume_reply_from_new_messages() {
         // Define the messages list:
         let id: Id = "0-0".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
@@ -949,12 +981,23 @@ mod test_consume_reply {
         assert!(!consume_reply.contains_pending_messages());
         assert!(!consume_reply.contains_claimed_messages());
         assert!(!consume_reply.is_empty());
+
+        // Test get messages:
+        assert!(consume_reply.get_messages().len().eq(&messages.len()));
+        assert!(consume_reply.get_messages()[0].id.eq(&id));
+        assert!(consume_reply.get_messages()[0].map.is_empty());
+
+        // Test get latest pending message id:
+        assert!(consume_reply.get_latest_pending_message_id().is_none());
+
+        // Test get next id to claim:
+        assert!(consume_reply.get_next_id_to_claim().is_none());
     }
 
     #[test]
-    fn test_consume_reply_from_pending_messages_reply() {
+    fn test_consume_reply_from_pending_messages() {
         // Define the messages list:
-        let id: Id = "0-0".to_string();
+        let id: Id = "1-1".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
             id: id.to_owned(),
             map: HashMap::new(),
@@ -973,10 +1016,23 @@ mod test_consume_reply {
         assert!(consume_reply.contains_pending_messages());
         assert!(!consume_reply.contains_claimed_messages());
         assert!(!consume_reply.is_empty());
+
+        // Test get messages:
+        assert!(consume_reply.get_messages().len().eq(&messages.len()));
+        assert!(consume_reply.get_messages()[0].id.eq(&id));
+        assert!(consume_reply.get_messages()[0].map.is_empty());
+
+        // Test get latest pending message id:
+        assert!(consume_reply
+            .get_latest_pending_message_id()
+            .is_some_and(|id| id.eq(&id)));
+
+        // Test get next id to claim:
+        assert!(consume_reply.get_next_id_to_claim().is_none());
     }
 
     #[test]
-    fn test_consume_reply_from_claimed_messages_reply() {
+    fn test_consume_reply_from_claimed_messages() {
         // Define the messages list:
         let id: Id = "0-0".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
@@ -997,10 +1053,23 @@ mod test_consume_reply {
         assert!(!consume_reply.contains_pending_messages());
         assert!(consume_reply.contains_claimed_messages());
         assert!(!consume_reply.is_empty());
+
+        // Test get messages:
+        assert!(consume_reply.get_messages().len().eq(&messages.len()));
+        assert!(consume_reply.get_messages()[0].id.eq(&id));
+        assert!(consume_reply.get_messages()[0].map.is_empty());
+
+        // Test get latest pending message id:
+        assert!(consume_reply.get_latest_pending_message_id().is_none());
+
+        // Test get next id to claim:
+        assert!(consume_reply
+            .get_next_id_to_claim()
+            .is_some_and(|id| id.eq(&id)));
     }
 
     #[test]
-    fn test_consume_reply_from_empty() {
+    fn test_consume_reply_from_empty_response() {
         // Create an empty consume reply:
         let consume_reply: ConsumeReply = ConsumeReply::from(ConsumeReplyRepr::Empty);
 
@@ -1009,6 +1078,15 @@ mod test_consume_reply {
         assert!(!consume_reply.contains_pending_messages());
         assert!(!consume_reply.contains_claimed_messages());
         assert!(consume_reply.is_empty());
+
+        // Test get messages:
+        assert!(consume_reply.get_messages().is_empty());
+
+        // Test get latest pending message id:
+        assert!(consume_reply.get_latest_pending_message_id().is_none());
+
+        // Test get next id to claim:
+        assert!(consume_reply.get_next_id_to_claim().is_none());
     }
 
     #[test]
