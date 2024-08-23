@@ -1,7 +1,7 @@
 use redis::{Commands, RedisResult, ToRedisArgs};
 
 #[allow(unused_imports)]
-use crate::types::{Id, RedsumerError, RedsumerResult};
+use crate::results::{Id, RedsumerError, RedsumerResult};
 
 fn produce_from_map<C, K, M>(c: &mut C, key: K, map: M) -> RedisResult<Id>
 where

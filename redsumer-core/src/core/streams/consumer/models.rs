@@ -1,6 +1,6 @@
 use redis::{streams::StreamId, ToRedisArgs};
 
-use crate::types::Id;
+use crate::results::Id;
 
 /// Options used to configure the consume operation when reading new messages from a Redis stream.
 #[derive(Debug, Clone)]

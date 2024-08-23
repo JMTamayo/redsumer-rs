@@ -6,9 +6,9 @@ use redis::{
     Commands, RedisResult, ToRedisArgs,
 };
 
-use crate::streams::consumer::models::*;
 #[allow(unused_imports)]
-use crate::types::{Id, RedsumerError, RedsumerResult};
+use crate::results::{Id, RedsumerError, RedsumerResult};
+use crate::streams::consumer::models::*;
 
 fn create_consumer_group<C, K, G, ID>(
     conn: &mut C,

@@ -1,7 +1,7 @@
 use redis::{Commands, ErrorKind, RedisError, RedisResult};
 
 #[allow(unused_imports)]
-use crate::types::{RedsumerError, RedsumerResult};
+use crate::results::{RedsumerError, RedsumerResult};
 
 fn ping<C>(c: &mut C) -> RedisResult<String>
 where

@@ -4,7 +4,7 @@ use redis::{Client, ProtocolVersion};
 use redis::{ConnectionAddr, ConnectionInfo, RedisConnectionInfo};
 
 #[allow(unused_imports)]
-use crate::types::{RedsumerError, RedsumerResult};
+use crate::results::{RedsumerError, RedsumerResult};
 
 /// Redis connection protocol. It's an alias for [`ProtocolVersion`].
 pub type CommunicationProtocol = ProtocolVersion;
