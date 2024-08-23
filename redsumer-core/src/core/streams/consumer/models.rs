@@ -524,6 +524,114 @@ impl From<ConsumeReplyRepr> for ConsumeReply {
     }
 }
 
+/// Define the configuration parameters to create a consumer instance.
+pub struct ConsumerConfig<'q> {
+    stream_name: &'q str,
+    group_name: &'q str,
+    consumer_name: &'q str,
+    read_new_messages_options: ReadNewMessagesOptions,
+    read_pending_messages_options: ReadPendingMessagesOptions<Id>,
+    claim_messages_options: ClaimMessagesOptions<Id>,
+}
+
+impl<'q> ConsumerConfig<'q> {
+    /// Get **stream name**.
+    ///
+    /// # Arguments:
+    /// - No arguments.
+    ///
+    /// # Returns:
+    /// The stream name.
+    pub fn get_stream_name(&self) -> &str {
+        self.stream_name
+    }
+
+    /// Get **group name**.
+    ///
+    /// # Arguments:
+    /// - No arguments.
+    ///
+    /// # Returns:
+    /// The group name.
+    pub fn get_group_name(&self) -> &str {
+        self.group_name
+    }
+
+    /// Get **consumer name**.
+    ///
+    /// # Arguments:
+    /// - No arguments.
+    ///
+    /// # Returns:
+    /// The consumer name.
+    pub fn get_consumer_name(&self) -> &str {
+        self.consumer_name
+    }
+
+    /// Get **read new messages options**.
+    ///
+    /// # Arguments:
+    /// - No arguments.
+    ///
+    /// # Returns:
+    /// The read new messages options.
+    pub fn get_read_new_messages_options(&self) -> &ReadNewMessagesOptions {
+        &self.read_new_messages_options
+    }
+
+    /// Get **read pending messages options**.
+    ///
+    /// # Arguments:
+    /// - No arguments.
+    ///
+    /// # Returns:
+    /// The read pending messages options.
+    pub fn get_read_pending_messages_options(&self) -> &ReadPendingMessagesOptions<Id> {
+        &self.read_pending_messages_options
+    }
+
+    /// Get **claim messages options**.
+    ///
+    /// # Arguments:
+    /// - No arguments.
+    ///
+    /// # Returns:
+    /// The claim messages options.
+    pub fn get_claim_messages_options(&self) -> &ClaimMessagesOptions<Id> {
+        &self.claim_messages_options
+    }
+
+    /// Create a new [`ConsumerConfig`] instance.
+    ///
+    /// # Arguments:
+    /// - **stream_name**: The name of the stream where messages will be consumed.
+    /// - **group_name**: The name of the consumer group.
+    /// - **consumer_name**: The name of the consumer.
+    /// - **read_new_messages_options**: The options to configure the consume operation when reading new messages from the stream.
+    /// - **read_pending_messages_options**: The options to configure the consume operation when reading pending messages from the stream.
+    /// - **claim_messages_options**: The options to configure the consume operation when claiming messages from the stream.
+    ///
+    /// # Returns:
+    /// A new [`ConsumerConfig`] instance.
+    pub fn new(
+        stream_name: &'q str,
+        group_name: &'q str,
+        consumer_name: &'q str,
+        read_new_messages_options: &ReadNewMessagesOptions,
+        read_pending_messages_options: &ReadPendingMessagesOptions<Id>,
+        claim_messages_options: &ClaimMessagesOptions<Id>,
+    ) -> Self {
+        ConsumerConfig {
+            stream_name,
+            group_name,
+            consumer_name,
+            read_new_messages_options: read_new_messages_options.to_owned(),
+            read_pending_messages_options: read_pending_messages_options.to_owned(),
+            claim_messages_options: claim_messages_options.to_owned(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test_consume_operation_options {
     use super::*;
@@ -1136,5 +1244,81 @@ mod test_consume_reply {
 			format!("{:?}", consume_reply),
 			"ConsumeReply { repr: New(NewMessagesReply { messages: [StreamId { id: \"0-0\", map: {} }] }) }"
 		);
+    }
+}
+
+#[cfg(test)]
+mod test_consumer_config {
+    use super::*;
+
+    #[test]
+    fn test_consumer_config_builder() {
+        // Define the config parameters:
+        let stream_name: &str = "stream";
+        let group_name: &str = "group";
+        let consumer_name: &str = "consumer";
+        let count: usize = 10;
+        let block: usize = 5;
+        let latest_pending_message_id: Id = Id::from("0-0");
+        let min_idle_time: usize = 1000;
+        let next_id_to_claim: Id = Id::from("0-0");
+
+        // Create the read new messages options:
+        let read_new_messages_options: &ReadNewMessagesOptions =
+            &ReadNewMessagesOptions::new(count, block);
+
+        // Create the read pending messages options:
+        let read_pending_messages_options: &ReadPendingMessagesOptions<Id> =
+            &ReadPendingMessagesOptions::new(count, latest_pending_message_id.to_owned());
+
+        // Create the claim messages options:
+        let claim_messages_options: &ClaimMessagesOptions<Id> =
+            &ClaimMessagesOptions::new(count, min_idle_time, next_id_to_claim.to_owned());
+
+        // Create the consumer config instance:
+        let config: ConsumerConfig = ConsumerConfig::new(
+            stream_name,
+            group_name,
+            consumer_name,
+            read_new_messages_options,
+            read_pending_messages_options,
+            claim_messages_options,
+        );
+
+        // Check the config parameters:
+        assert_eq!(config.get_stream_name(), stream_name);
+        assert_eq!(config.get_group_name(), group_name);
+        assert_eq!(config.get_consumer_name(), consumer_name);
+
+        assert_eq!(
+            config.get_read_new_messages_options().get_block(),
+            read_new_messages_options.get_block()
+        );
+        assert_eq!(
+            config.get_read_new_messages_options().get_count(),
+            read_new_messages_options.get_count()
+        );
+
+        assert_eq!(
+            config.get_read_pending_messages_options().get_count(),
+            read_pending_messages_options.get_count()
+        );
+        assert!(config
+            .get_read_pending_messages_options()
+            .get_latest_pending_message_id()
+            .eq(&latest_pending_message_id));
+
+        assert_eq!(
+            config.get_claim_messages_options().get_count(),
+            claim_messages_options.get_count()
+        );
+        assert_eq!(
+            config.get_claim_messages_options().get_min_idle_time(),
+            claim_messages_options.get_min_idle_time()
+        );
+        assert!(config
+            .get_claim_messages_options()
+            .get_next_id_to_claim()
+            .eq(&next_id_to_claim));
     }
 }

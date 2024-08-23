@@ -23,17 +23,6 @@ impl<'d> ProducerConfig<'d> {
     ///
     /// # Returns:
     /// A new [`ProducerConfig`] instance.
-    ///
-    /// # Example:
-    /// ```rust,no_run
-    /// use redsumer::ProducerConfig;
-    ///
-    /// // Define the stream name.
-    /// let stream_name = "my_stream";
-    ///
-    /// // Create a new ProducerConfig instance.
-    /// let config: ProducerConfig = ProducerConfig::new(stream_name);
-    /// ```
     pub fn new(stream_name: &'d str) -> Self {
         ProducerConfig { stream_name }
     }
