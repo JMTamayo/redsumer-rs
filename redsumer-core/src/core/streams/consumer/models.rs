@@ -810,7 +810,7 @@ mod test_new_messages_reply {
     #[test]
     fn test_new_messages_reply_builder() {
         // Define the messages list:
-        let id: Id = "0-0".to_string();
+        let id: String = "0-0".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
             id: id.to_owned(),
             map: HashMap::new(),
@@ -1266,11 +1266,11 @@ mod test_consumer_config {
             &ReadNewMessagesOptions::new(count, block);
 
         // Create the read pending messages options:
-        let read_pending_messages_options: &ReadPendingMessagesOptions<Id> =
+        let read_pending_messages_options: &ReadPendingMessagesOptions<String> =
             &ReadPendingMessagesOptions::new(count, latest_pending_message_id.to_owned());
 
         // Create the claim messages options:
-        let claim_messages_options: &ClaimMessagesOptions<Id> =
+        let claim_messages_options: &ClaimMessagesOptions<String> =
             &ClaimMessagesOptions::new(count, min_idle_time, next_id_to_claim.to_owned());
 
         // Create the consumer config instance:
