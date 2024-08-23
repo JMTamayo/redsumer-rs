@@ -1,10 +1,13 @@
 use std::fmt::Debug;
 
-use redis::Client;
+use redis::{Client, ProtocolVersion};
 use redis::{ConnectionAddr, ConnectionInfo, RedisConnectionInfo};
 
 #[allow(unused_imports)]
-use crate::types::{CommunicationProtocol, RedsumerError, RedsumerResult};
+use crate::types::{RedsumerError, RedsumerResult};
+
+/// Redis connection protocol. It's an alias for [`ProtocolVersion`].
+pub type CommunicationProtocol = ProtocolVersion;
 
 /// To hold credentials to authenticate in Redis, that are used when server requires it.
 #[derive(Clone)]
