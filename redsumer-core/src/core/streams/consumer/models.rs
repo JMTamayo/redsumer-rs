@@ -1,7 +1,5 @@
 use redis::{streams::StreamId, ToRedisArgs};
 
-use crate::results::Id;
-
 /// Options used to configure the consume operation when reading new messages from a Redis stream.
 #[derive(Debug, Clone)]
 pub struct ReadNewMessagesOptions {
@@ -91,7 +89,7 @@ where
     ///
     /// # Arguments:
     /// - **count**: The number of pending messages to read from the stream.
-    /// - **latest_pending_message_id**: The latest pending message [`Id`] to start reading from.
+    /// - **latest_pending_message_id**: The latest pending message ID to start reading from.
     ///
     /// # Returns:
     /// A new instance of [`ReadPendingMessagesOptions`] with the given count and latest pending message ID.
@@ -161,7 +159,7 @@ where
     /// # Arguments:
     /// - **count**: The number of messages to claim from the stream.
     /// - **min_idle_time**: The min idle time [milliseconds] to claim the messages.
-    /// - **next_id_to_claim**: The latest pending message [`Id`] to start claiming from.
+    /// - **next_id_to_claim**: The latest pending message ID to start claiming from.
     ///
     /// # Returns:
     /// A new instance of [`ClaimMessagesOptions`] with the given count, min idle time and latest pending message ID.
@@ -244,8 +242,8 @@ pub struct PendingMessagesReply {
     /// List of pending messages retrieved from the stream.
     messages: Vec<StreamId>,
 
-    /// The [`Id`] of the latest pending message from the current list.
-    latest_pending_message_id: Option<Id>,
+    /// The ID of the latest pending message from the current list.
+    latest_pending_message_id: Option<String>,
 }
 
 impl PendingMessagesReply {
@@ -260,14 +258,14 @@ impl PendingMessagesReply {
         &self.messages
     }
 
-    /// Get the [`Id`] of the latest pending message.
+    /// Get the ID of the latest pending message.
     ///
     /// # Arguments:
     /// *No arguments.*
     ///
     /// # Returns:
-    /// The [`Id`] of the latest pending message from the current list.
-    pub fn get_latest_pending_message_id(&self) -> &Option<Id> {
+    /// The ID of the latest pending message from the current list.
+    pub fn get_latest_pending_message_id(&self) -> &Option<String> {
         &self.latest_pending_message_id
     }
 
@@ -294,17 +292,17 @@ pub trait PendingMessagesReplyFactory {
     /// A new instance of [`PendingMessagesReply`] with an empty list of messages and no latest pending message.
     fn empty() -> PendingMessagesReply;
 
-    /// Create an instance of [`PendingMessagesReply`] from the given list of messages and latest pending message [`Id`].
+    /// Create an instance of [`PendingMessagesReply`] from the given list of messages and latest pending message ID.
     ///
     /// # Arguments:
     /// - **messages**: A [`Vec`] of [`StreamId`] instances representing the pending messages retrieved from the stream.
-    /// - **latest_pending_message_id**: The [`Id`] of the latest pending message.
+    /// - **latest_pending_message_id**: The ID of the latest pending message.
     ///
     /// # Returns:
-    /// A new instance of [`PendingMessagesReply`] with the given list of messages and latest pending message [`Id`].
+    /// A new instance of [`PendingMessagesReply`] with the given list of messages and latest pending message ID.
     fn build(
         messages: Vec<StreamId>,
-        latest_pending_message_id: Option<Id>,
+        latest_pending_message_id: Option<String>,
     ) -> PendingMessagesReply;
 }
 
@@ -318,7 +316,7 @@ impl PendingMessagesReplyFactory for PendingMessagesReply {
 
     fn build(
         messages: Vec<StreamId>,
-        latest_pending_message_id: Option<Id>,
+        latest_pending_message_id: Option<String>,
     ) -> PendingMessagesReply {
         PendingMessagesReply {
             messages,
@@ -333,8 +331,8 @@ pub struct ClaimedMessagesReply {
     /// List of claimed messages retrieved from the stream.
     messages: Vec<StreamId>,
 
-    /// The [`Id`] of the next message to claim. This value must be used to claim the next message from the stream if you can not claim the current list of messages again.
-    next_id_to_claim: Option<Id>,
+    /// The ID of the next message to claim. This value must be used to claim the next message from the stream if you can not claim the current list of messages again.
+    next_id_to_claim: Option<String>,
 }
 
 impl ClaimedMessagesReply {
@@ -349,14 +347,14 @@ impl ClaimedMessagesReply {
         &self.messages
     }
 
-    /// Get the [`Id`] of the next message to claim.
+    /// Get the ID of the next message to claim.
     ///
     /// # Arguments:
     /// *No arguments.*
     ///
     /// # Returns:
-    /// The [`Id`] of the next message to claim.
-    pub fn get_next_id_to_claim(&self) -> &Option<Id> {
+    /// The ID of the next message to claim.
+    pub fn get_next_id_to_claim(&self) -> &Option<String> {
         &self.next_id_to_claim
     }
 
@@ -375,7 +373,7 @@ impl ClaimedMessagesReply {
 /// Factory trait used to create instances of [`ClaimedMessagesReply`].
 pub trait ClaimedMessagesReplyFactory {
     fn empty() -> ClaimedMessagesReply;
-    fn build(messages: Vec<StreamId>, next_id_to_claim: Option<Id>) -> ClaimedMessagesReply;
+    fn build(messages: Vec<StreamId>, next_id_to_claim: Option<String>) -> ClaimedMessagesReply;
 }
 
 impl ClaimedMessagesReplyFactory for ClaimedMessagesReply {
@@ -386,7 +384,7 @@ impl ClaimedMessagesReplyFactory for ClaimedMessagesReply {
         }
     }
 
-    fn build(messages: Vec<StreamId>, next_id_to_claim: Option<Id>) -> ClaimedMessagesReply {
+    fn build(messages: Vec<StreamId>, next_id_to_claim: Option<String>) -> ClaimedMessagesReply {
         ClaimedMessagesReply {
             messages,
             next_id_to_claim,
@@ -489,28 +487,28 @@ impl ConsumeReply {
         }
     }
 
-    /// Get the [`Id`] of the latest pending message. If the reply is empty or does not contain pending messages, it will return `None`.
+    /// Get the ID of the latest pending message. If the reply is empty or does not contain pending messages, it will return `None`.
     ///
     /// # Arguments:
     /// *No arguments.*
     ///
     /// # Returns:
-    /// The [`Id`] of the latest pending message.
-    pub fn get_latest_pending_message_id(&self) -> Option<Id> {
+    /// The ID of the latest pending message.
+    pub fn get_latest_pending_message_id(&self) -> Option<String> {
         match self.get_repr() {
             ConsumeReplyRepr::Pending(reply) => reply.get_latest_pending_message_id().to_owned(),
             _ => None,
         }
     }
 
-    /// Get the [`Id`] of the next message to claim. If the reply is empty or does not contain claimed messages, it will return `None`.
+    /// Get the ID of the next message to claim. If the reply is empty or does not contain claimed messages, it will return `None`.
     ///
     /// # Arguments:
     /// *No arguments.*
     ///
     /// # Returns:
-    /// The [`Id`] of the next message to claim.
-    pub fn get_next_id_to_claim(&self) -> Option<Id> {
+    /// The ID of the next message to claim.
+    pub fn get_next_id_to_claim(&self) -> Option<String> {
         match self.get_repr() {
             ConsumeReplyRepr::Claimed(reply) => reply.get_next_id_to_claim().to_owned(),
             _ => None,
@@ -530,8 +528,8 @@ pub struct ConsumerConfig<'q> {
     group_name: &'q str,
     consumer_name: &'q str,
     read_new_messages_options: ReadNewMessagesOptions,
-    read_pending_messages_options: ReadPendingMessagesOptions<Id>,
-    claim_messages_options: ClaimMessagesOptions<Id>,
+    read_pending_messages_options: ReadPendingMessagesOptions<String>,
+    claim_messages_options: ClaimMessagesOptions<String>,
 }
 
 impl<'q> ConsumerConfig<'q> {
@@ -586,7 +584,7 @@ impl<'q> ConsumerConfig<'q> {
     ///
     /// # Returns:
     /// The read pending messages options.
-    pub fn get_read_pending_messages_options(&self) -> &ReadPendingMessagesOptions<Id> {
+    pub fn get_read_pending_messages_options(&self) -> &ReadPendingMessagesOptions<String> {
         &self.read_pending_messages_options
     }
 
@@ -597,7 +595,7 @@ impl<'q> ConsumerConfig<'q> {
     ///
     /// # Returns:
     /// The claim messages options.
-    pub fn get_claim_messages_options(&self) -> &ClaimMessagesOptions<Id> {
+    pub fn get_claim_messages_options(&self) -> &ClaimMessagesOptions<String> {
         &self.claim_messages_options
     }
 
@@ -618,8 +616,8 @@ impl<'q> ConsumerConfig<'q> {
         group_name: &'q str,
         consumer_name: &'q str,
         read_new_messages_options: &ReadNewMessagesOptions,
-        read_pending_messages_options: &ReadPendingMessagesOptions<Id>,
-        claim_messages_options: &ClaimMessagesOptions<Id>,
+        read_pending_messages_options: &ReadPendingMessagesOptions<String>,
+        claim_messages_options: &ClaimMessagesOptions<String>,
     ) -> Self {
         ConsumerConfig {
             stream_name,
@@ -687,10 +685,10 @@ mod test_consume_operation_options {
     fn test_read_pending_messages_options_builder() {
         // Define the options parameters:
         let count: usize = 10;
-        let latest_pending_message_id: Id = Id::from("0-0");
+        let latest_pending_message_id: String = String::from("0-0");
 
         // Create the options instance:
-        let options: ReadPendingMessagesOptions<Id> =
+        let options: ReadPendingMessagesOptions<String> =
             ReadPendingMessagesOptions::new(count, latest_pending_message_id.to_owned());
 
         // Check the options parameters:
@@ -704,14 +702,14 @@ mod test_consume_operation_options {
     fn test_read_pending_messages_clone() {
         // Define the options parameters:
         let count: usize = 10;
-        let latest_pending_message_id: Id = Id::from("0-0");
+        let latest_pending_message_id: String = String::from("0-0");
 
         // Create the options instance:
-        let options: ReadPendingMessagesOptions<Id> =
+        let options: ReadPendingMessagesOptions<String> =
             ReadPendingMessagesOptions::new(count, latest_pending_message_id.to_owned());
 
         // Clone the options instance:
-        let cloned_options: ReadPendingMessagesOptions<Id> = options.clone();
+        let cloned_options: ReadPendingMessagesOptions<String> = options.clone();
 
         // Check the cloned options parameters:
         assert_eq!(cloned_options.get_count(), count);
@@ -724,10 +722,10 @@ mod test_consume_operation_options {
     fn test_read_pending_messages_debug() {
         // Define the options parameters:
         let count: usize = 10;
-        let latest_pending_message_id: Id = Id::from("0-0");
+        let latest_pending_message_id: String = String::from("0-0");
 
         // Create the options instance:
-        let options: ReadPendingMessagesOptions<Id> =
+        let options: ReadPendingMessagesOptions<String> =
             ReadPendingMessagesOptions::new(count, latest_pending_message_id);
 
         // Check the options debug representation:
@@ -742,10 +740,10 @@ mod test_consume_operation_options {
         // Define the options parameters:
         let count: usize = 10;
         let min_idle_time: usize = 1000;
-        let next_id_to_claim: Id = Id::from("0-0");
+        let next_id_to_claim: String = String::from("0-0");
 
         // Create the options instance:
-        let options: ClaimMessagesOptions<Id> =
+        let options: ClaimMessagesOptions<String> =
             ClaimMessagesOptions::new(count, min_idle_time, next_id_to_claim.to_owned());
 
         // Check the options parameters:
@@ -759,14 +757,14 @@ mod test_consume_operation_options {
         // Define the options parameters:
         let count: usize = 10;
         let min_idle_time: usize = 1000;
-        let next_id_to_claim: Id = Id::from("0-0");
+        let next_id_to_claim: String = String::from("0-0");
 
         // Create the options instance:
-        let options: ClaimMessagesOptions<Id> =
+        let options: ClaimMessagesOptions<String> =
             ClaimMessagesOptions::new(count, min_idle_time, next_id_to_claim.to_owned());
 
         // Clone the options instance:
-        let cloned_options: ClaimMessagesOptions<Id> = options.clone();
+        let cloned_options: ClaimMessagesOptions<String> = options.clone();
 
         // Check the cloned options parameters:
         assert_eq!(cloned_options.get_count(), count);
@@ -779,10 +777,10 @@ mod test_consume_operation_options {
         // Define the options parameters:
         let count: usize = 10;
         let min_idle_time: usize = 1000;
-        let next_id_to_claim: Id = Id::from("0-0");
+        let next_id_to_claim: String = String::from("0-0");
 
         // Create the options instance:
-        let options: ClaimMessagesOptions<Id> =
+        let options: ClaimMessagesOptions<String> =
             ClaimMessagesOptions::new(count, min_idle_time, next_id_to_claim);
 
         // Check the options debug representation:
@@ -832,7 +830,7 @@ mod test_new_messages_reply {
     #[test]
     fn test_new_messages_reply_clone() {
         // Define the messages list:
-        let id: Id = "0-0".to_string();
+        let id: String = "0-0".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
             id: id.to_owned(),
             map: HashMap::new(),
@@ -855,7 +853,7 @@ mod test_new_messages_reply {
     #[test]
     fn test_new_messages_reply_debug() {
         // Define the messages list:
-        let id: Id = "0-0".to_string();
+        let id: String = "0-0".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
             id: id.to_owned(),
             map: HashMap::new(),
@@ -892,7 +890,7 @@ mod test_pending_messages_reply {
     #[test]
     fn test_pending_messages_reply_builder() {
         // Define the messages list:
-        let id: Id = "0-0".to_string();
+        let id: String = "0-0".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
             id: id.to_owned(),
             map: HashMap::new(),
@@ -920,7 +918,7 @@ mod test_pending_messages_reply {
     #[test]
     fn test_pending_messages_reply_clone() {
         // Define the messages list:
-        let id: Id = "0-0".to_string();
+        let id: String = "0-0".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
             id: id.to_owned(),
             map: HashMap::new(),
@@ -951,7 +949,7 @@ mod test_pending_messages_reply {
     #[test]
     fn test_pending_messages_reply_debug() {
         // Define the messages list:
-        let id: Id = "0-0".to_string();
+        let id: String = "0-0".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
             id: id.to_owned(),
             map: HashMap::new(),
@@ -989,7 +987,7 @@ mod test_claimed_messages_reply {
     #[test]
     fn test_claimed_messages_reply_builder() {
         // Define the messages list:
-        let id: Id = "0-0".to_string();
+        let id: String = "0-0".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
             id: id.to_owned(),
             map: HashMap::new(),
@@ -1013,7 +1011,7 @@ mod test_claimed_messages_reply {
     #[test]
     fn test_claimed_messages_reply_clone() {
         // Define the messages list:
-        let id: Id = "0-0".to_string();
+        let id: String = "0-0".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
             id: id.to_owned(),
             map: HashMap::new(),
@@ -1044,7 +1042,7 @@ mod test_claimed_messages_reply {
     #[test]
     fn test_claimed_messages_reply_debug() {
         // Define the messages list:
-        let id: Id = "0-0".to_string();
+        let id: String = "0-0".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
             id: id.to_owned(),
             map: HashMap::new(),
@@ -1071,7 +1069,7 @@ mod test_consume_reply {
     #[test]
     fn test_consume_reply_from_new_messages() {
         // Define the messages list:
-        let id: Id = "0-0".to_string();
+        let id: String = "0-0".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
             id: id.to_owned(),
             map: HashMap::new(),
@@ -1105,7 +1103,7 @@ mod test_consume_reply {
     #[test]
     fn test_consume_reply_from_pending_messages() {
         // Define the messages list:
-        let id: Id = "1-1".to_string();
+        let id: String = "1-1".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
             id: id.to_owned(),
             map: HashMap::new(),
@@ -1142,7 +1140,7 @@ mod test_consume_reply {
     #[test]
     fn test_consume_reply_from_claimed_messages() {
         // Define the messages list:
-        let id: Id = "0-0".to_string();
+        let id: String = "0-0".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
             id: id.to_owned(),
             map: HashMap::new(),
@@ -1200,7 +1198,7 @@ mod test_consume_reply {
     #[test]
     fn test_consume_reply_clone() {
         // Define the messages list:
-        let id: Id = "0-0".to_string();
+        let id: String = "0-0".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
             id: id.to_owned(),
             map: HashMap::new(),
@@ -1226,7 +1224,7 @@ mod test_consume_reply {
     #[test]
     fn test_consume_reply_debug() {
         // Define the messages list:
-        let id: Id = "0-0".to_string();
+        let id: String = "0-0".to_string();
         let messages: Vec<StreamId> = vec![StreamId {
             id: id.to_owned(),
             map: HashMap::new(),
@@ -1259,9 +1257,9 @@ mod test_consumer_config {
         let consumer_name: &str = "consumer";
         let count: usize = 10;
         let block: usize = 5;
-        let latest_pending_message_id: Id = Id::from("0-0");
+        let latest_pending_message_id: String = String::from("0-0");
         let min_idle_time: usize = 1000;
-        let next_id_to_claim: Id = Id::from("0-0");
+        let next_id_to_claim: String = String::from("0-0");
 
         // Create the read new messages options:
         let read_new_messages_options: &ReadNewMessagesOptions =

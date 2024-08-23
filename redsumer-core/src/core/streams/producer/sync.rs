@@ -1,24 +1,26 @@
-use redis::{Commands, RedisResult, ToRedisArgs};
+use redis::{Commands, FromRedisValue, RedisResult, ToRedisArgs};
 
 #[allow(unused_imports)]
-use crate::results::{Id, RedsumerError, RedsumerResult};
+use crate::results::{RedsumerError, RedsumerResult};
 use crate::streams::producer::models::ProducerConfig;
 
-fn produce_from_map<C, K, M>(c: &mut C, key: K, map: M) -> RedisResult<Id>
+fn produce_from_map<C, K, M, ID>(c: &mut C, key: K, map: M) -> RedisResult<ID>
 where
     C: Commands,
     K: ToRedisArgs,
     M: ToRedisArgs,
+    ID: FromRedisValue,
 {
     c.xadd_map(key, "*", map)
 }
 
-fn produce_from_items<C, K, F, V>(c: &mut C, key: K, items: &[(F, V)]) -> RedisResult<Id>
+fn produce_from_items<C, K, F, V, ID>(c: &mut C, key: K, items: &[(F, V)]) -> RedisResult<ID>
 where
     C: Commands,
     K: ToRedisArgs,
     F: ToRedisArgs,
     V: ToRedisArgs,
+    ID: FromRedisValue,
 {
     c.xadd(key, "*", items)
 }
@@ -32,8 +34,8 @@ pub trait ProducerCommands {
     /// - **map**: A map with the message fields and values, which must implement the `ToRedisArgs` trait.
     ///
     /// # Returns:
-    /// A [`RedsumerResult`] with the message [`Id`] if the message was produced successfully. Otherwise, a [`RedsumerError`] is returned.
-    fn produce_from_map<M>(&mut self, config: &ProducerConfig, map: M) -> RedsumerResult<Id>
+    /// A [`RedsumerResult`] with the message ID if the message was produced successfully. Otherwise, a [`RedsumerError`] is returned.
+    fn produce_from_map<M>(&mut self, config: &ProducerConfig, map: M) -> RedsumerResult<String>
     where
         M: ToRedisArgs;
 
@@ -44,12 +46,12 @@ pub trait ProducerCommands {
     /// - **items**: A list of tuples with the message fields and values, which must implement the `ToRedisArgs` trait.
     ///
     /// # Returns:
-    /// A [`RedsumerResult`] with the message [`Id`] if the message was produced successfully. Otherwise, a [`RedsumerError`] is returned.
+    /// A [`RedsumerResult`] with the message ID if the message was produced successfully. Otherwise, a [`RedsumerError`] is returned.
     fn produce_from_items<F, V>(
         &mut self,
         config: &ProducerConfig,
         items: &[(F, V)],
-    ) -> RedsumerResult<Id>
+    ) -> RedsumerResult<String>
     where
         F: ToRedisArgs,
         V: ToRedisArgs;
@@ -59,7 +61,7 @@ impl<C> ProducerCommands for C
 where
     C: Commands,
 {
-    fn produce_from_map<M>(&mut self, config: &ProducerConfig, map: M) -> RedsumerResult<Id>
+    fn produce_from_map<M>(&mut self, config: &ProducerConfig, map: M) -> RedsumerResult<String>
     where
         M: ToRedisArgs,
     {
@@ -70,7 +72,7 @@ where
         &mut self,
         config: &ProducerConfig,
         items: &[(F, V)],
-    ) -> RedsumerResult<Id>
+    ) -> RedsumerResult<String>
     where
         F: ToRedisArgs,
         V: ToRedisArgs,
@@ -90,7 +92,7 @@ mod test_produce_from_map {
 
     #[test]
     fn test_produce_from_map_ok() {
-        // Define the key and id:
+        // Define the key:
         let key: &str = "my-key";
 
         // Create a ProducerConfig instance.
@@ -108,7 +110,7 @@ mod test_produce_from_map {
             )]);
 
         // Produce the message:
-        let result: RedsumerResult<Id> = conn.produce_from_map(&config, map);
+        let result: RedsumerResult<String> = conn.produce_from_map(&config, map);
 
         // Verify the result:
         assert!(result.is_ok());
@@ -116,7 +118,7 @@ mod test_produce_from_map {
 
     #[test]
     fn test_produce_from_map_error() {
-        // Define the key and id:
+        // Define the key:
         let key: &str = "my-key";
 
         // Create a ProducerConfig instance.
@@ -138,7 +140,7 @@ mod test_produce_from_map {
             )]);
 
         // Produce the message:
-        let result: RedsumerResult<Id> = conn.produce_from_map(&config, map);
+        let result: RedsumerResult<String> = conn.produce_from_map(&config, map);
 
         // Verify the result:
         assert!(result.is_err());
@@ -154,7 +156,7 @@ mod test_produce_from_items {
 
     #[test]
     fn test_produce_from_items_ok() {
-        // Define the key and id:
+        // Define the key:
         let key: &str = "my-key";
 
         // Create a ProducerConfig instance.
@@ -171,7 +173,7 @@ mod test_produce_from_items {
             )]);
 
         // Produce the message:
-        let result: RedsumerResult<Id> = conn.produce_from_items(&config, &items);
+        let result: RedsumerResult<String> = conn.produce_from_items(&config, &items);
 
         // Verify the result:
         assert!(result.is_ok());
@@ -179,7 +181,7 @@ mod test_produce_from_items {
 
     #[test]
     fn test_produce_from_items_error() {
-        // Define the key and id:
+        // Define the key:
         let key: &str = "my-key";
 
         // Create a ProducerConfig instance:
@@ -200,7 +202,7 @@ mod test_produce_from_items {
             )]);
 
         // Produce the message:
-        let result: RedsumerResult<Id> = conn.produce_from_items(&config, &items);
+        let result: RedsumerResult<String> = conn.produce_from_items(&config, &items);
 
         // Verify the result:
         assert!(result.is_err());

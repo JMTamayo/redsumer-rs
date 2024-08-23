@@ -7,7 +7,7 @@ use redis::{
 };
 
 #[allow(unused_imports)]
-use crate::results::{Id, RedsumerError, RedsumerResult};
+use crate::results::{RedsumerError, RedsumerResult};
 use crate::streams::consumer::models::*;
 
 fn create_consumer_group<C, K, G, ID>(
@@ -115,7 +115,8 @@ where
         )?
         .unwrap_by_key(key);
 
-    let latest_pending_message_id: Option<Id> = pending_messages.last().map(|s| s.id.to_owned());
+    let latest_pending_message_id: Option<String> =
+        pending_messages.last().map(|s| s.id.to_owned());
 
     Ok(PendingMessagesReply::build(
         pending_messages,
