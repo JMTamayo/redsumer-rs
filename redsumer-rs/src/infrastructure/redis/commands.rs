@@ -1,24 +1,19 @@
+//! Low-level Redis Streams commands used internally to produce and consume messages.
+
 use redis::{
     streams::{
         StreamAutoClaimOptions, StreamAutoClaimReply, StreamId, StreamPendingCountReply,
         StreamReadOptions, StreamReadReply,
     },
-    Commands, ErrorKind, RedisError, RedisResult, ToRedisArgs,
+    Commands, RedisResult, ToRedisArgs,
 };
 use tracing::{debug, error, warn};
 
-#[allow(unused_imports)]
-use crate::core::{
-    result::{RedsumerError, RedsumerResult},
-    streams::types::{
-        LastDeliveredMilliseconds, LatestPendingMessageId, NextIdToClaim, TotalTimesDelivered,
-    },
-};
-
-pub const BEGINNING_OF_TIME_ID: &str = "0-0";
+/// The ID that represents the beginning of time in a Redis stream.
+pub(crate) const BEGINNING_OF_TIME_ID: &str = "0-0";
 
 /// Get StreamIds from a StreamReadReply by key.
-trait UnwrapStreamReadReply<K> {
+trait UnwrapStreamReadReply {
     /// Unwrap StreamReadReply by key into a `Vec<StreamId>`.
     ///
     /// # Arguments:
@@ -26,25 +21,19 @@ trait UnwrapStreamReadReply<K> {
     ///
     /// # Returns:
     /// A `Vec<StreamId>` with the StreamIds found.
-    fn unwrap_by_key(&self, key: &K) -> Vec<StreamId>
-    where
-        K: ToString;
+    fn unwrap_by_key(&self, key: &str) -> Vec<StreamId>;
 }
 
-impl<K> UnwrapStreamReadReply<K> for StreamReadReply
-where
-    K: ToString,
-{
-    fn unwrap_by_key(&self, key: &K) -> Vec<StreamId> {
+impl UnwrapStreamReadReply for StreamReadReply {
+    fn unwrap_by_key(&self, key: &str) -> Vec<StreamId> {
         let mut ids: Vec<StreamId> = Vec::new();
 
         for stream in self.keys.iter() {
-            match stream.key.eq(&key.to_string()) {
+            match stream.key.eq(key) {
                 true => ids.extend(stream.ids.to_owned()),
                 false => warn!(
                     "An unexpected stream name found while extracting the key {}: {}. ",
-                    &key.to_string(),
-                    stream.key,
+                    key, stream.key,
                 ),
             };
         }
@@ -54,44 +43,31 @@ where
 }
 
 /// Verify if a stream exists in Redis Stream service.
-fn verify_if_stream_exists<C, K>(conn: &mut C, key: K) -> RedsumerResult<()>
+pub(crate) fn stream_exists<C>(conn: &mut C, key: &str) -> RedisResult<bool>
 where
     C: Commands,
-    K: ToRedisArgs,
 {
     match conn.exists::<_, bool>(key) {
-        Ok(true) => {
-            debug!("The stream already exists");
-            Ok(())
-        }
-        Ok(false) => {
-            error!("The stream does not exist");
-            Err(RedisError::from((
-                ErrorKind::ClientError,
-                "Stream does not exist",
-            )))
+        Ok(exists) => {
+            debug!("Stream existence verified: {}", exists);
+            Ok(exists)
         }
         Err(e) => {
             error!("Error verifying if stream exists: {:?}", e);
-            Err(RedisError::from((
-                ErrorKind::ClientError,
-                "Error verifying if stream exists",
-            )))
+            Err(e)
         }
     }
 }
 
-/// Create a consumer group in a stream.
-fn create_consumer_group<C, K, G, ID>(
+/// Create a consumer group in a stream. Returns `true` if the group was created, or `false` if it already existed.
+pub(crate) fn create_consumer_group<C, ID>(
     conn: &mut C,
-    key: K,
-    group: G,
+    key: &str,
+    group: &str,
     since_id: ID,
 ) -> RedisResult<bool>
 where
     C: Commands,
-    K: ToRedisArgs,
-    G: ToRedisArgs,
     ID: ToRedisArgs,
 {
     match conn.xgroup_create::<_, _, _, String>(key, group, since_id) {
@@ -112,19 +88,16 @@ where
 }
 
 /// Read new messages from a stream.
-fn read_new_messages<C, K, G, N>(
+pub(crate) fn read_new_messages<C>(
     conn: &mut C,
-    key: &K,
-    group: &G,
-    consumer: &N,
+    key: &str,
+    group: &str,
+    consumer: &str,
     count: usize,
     block: usize,
 ) -> RedisResult<Vec<StreamId>>
 where
     C: Commands,
-    K: ToRedisArgs + ToString,
-    G: ToRedisArgs,
-    N: ToRedisArgs,
 {
     Ok(match count.gt(&0) {
         true => conn
@@ -141,21 +114,17 @@ where
     })
 }
 
-/// Read pending messages from a stream.
-fn read_pending_messages<C, K, G, N, ID>(
+/// Read pending messages from a stream. Returns the messages and the next cursor ID.
+pub(crate) fn read_pending_messages<C>(
     conn: &mut C,
-    key: &K,
-    group: &G,
-    consumer: &N,
-    latest_pending_message_id: ID,
+    key: &str,
+    group: &str,
+    consumer: &str,
+    latest_pending_message_id: &str,
     count: usize,
-) -> RedisResult<(Vec<StreamId>, LatestPendingMessageId)>
+) -> RedisResult<(Vec<StreamId>, String)>
 where
     C: Commands,
-    K: ToRedisArgs + ToString,
-    G: ToRedisArgs,
-    N: ToRedisArgs,
-    ID: ToRedisArgs,
 {
     match count.gt(&0) {
         true => {
@@ -180,22 +149,18 @@ where
     }
 }
 
-/// Claim pending messages from a stream.
-fn claim_pending_messages<C, K, G, N, ID>(
+/// Claim pending messages from a stream. Returns the claimed messages and the next cursor ID.
+pub(crate) fn claim_pending_messages<C>(
     conn: &mut C,
-    key: &K,
-    group: &G,
-    consumer: &N,
+    key: &str,
+    group: &str,
+    consumer: &str,
     min_idle_time: usize,
-    next_id_to_claim: ID,
+    next_id_to_claim: &str,
     count: usize,
-) -> RedisResult<(Vec<StreamId>, NextIdToClaim)>
+) -> RedisResult<(Vec<StreamId>, String)>
 where
     C: Commands,
-    K: ToRedisArgs,
-    G: ToRedisArgs,
-    N: ToRedisArgs,
-    ID: ToRedisArgs,
 {
     match count.gt(&0) {
         true => {
@@ -215,24 +180,18 @@ where
     }
 }
 
-/// Verify if a message is still in the consumer pending list.
-fn is_still_mine<C, K, G, CN, ID>(
+/// Get the pending state of a message in the consumer pending list.
+///
+/// Returns `Some((last_delivered_ms, times_delivered))` if the message is still in the consumer pending list, or `None` otherwise. If more than one entry is found for a single ID, an error is returned through the `Result` as an `Err(String)` detail.
+pub(crate) fn pending_message_state<C>(
     conn: &mut C,
-    key: K,
-    group: G,
-    consumer: CN,
-    id: ID,
-) -> RedsumerResult<(
-    bool,
-    Option<LastDeliveredMilliseconds>,
-    Option<TotalTimesDelivered>,
-)>
+    key: &str,
+    group: &str,
+    consumer: &str,
+    id: &str,
+) -> RedisResult<Result<Option<(usize, usize)>, String>>
 where
     C: Commands,
-    K: ToRedisArgs,
-    G: ToRedisArgs,
-    CN: ToRedisArgs,
-    ID: ToRedisArgs,
 {
     let reply: StreamPendingCountReply = conn
         .xpending_consumer_count::<_, _, _, _, _, _, StreamPendingCountReply>(
@@ -241,31 +200,27 @@ where
 
     if reply.ids.len().gt(&1) {
         error!("More than one pending message found searching for a single message Id");
-        return Err(RedisError::from((
-            ErrorKind::ClientError,
-            "Error verifying if stream exists",
-        )));
+        return Ok(Err(
+            "More than one pending message found searching for a single message Id".to_string(),
+        ));
     }
 
     match reply.ids.first() {
         Some(m) => {
             debug!("The message is still in the consumer pending list");
-            Ok((true, Some(m.last_delivered_ms), Some(m.times_delivered)))
+            Ok(Ok(Some((m.last_delivered_ms, m.times_delivered))))
         }
         None => {
             debug!("The message is not in the consumer pending list");
-            Ok((false, None, None))
+            Ok(Ok(None))
         }
     }
 }
 
 /// Ack a message in a consumer group.
-fn ack<C, K, G, ID>(conn: &mut C, key: K, group: G, id: ID) -> RedsumerResult<bool>
+pub(crate) fn ack<C>(conn: &mut C, key: &str, group: &str, id: &str) -> RedisResult<bool>
 where
     C: Commands,
-    K: ToRedisArgs,
-    G: ToRedisArgs,
-    ID: ToRedisArgs,
 {
     match conn.xack::<_, _, _, bool>(key, group, &[id]) {
         Ok(true) => {
@@ -283,271 +238,81 @@ where
     }
 }
 
-/// A trait that bundles methods for consuming messages from a Redis stream
-pub trait ConsumerCommands<K>
-where
-    K: ToRedisArgs,
-{
-    /// Verify if a stream exists in Redis Stream service.
-    ///
-    /// # Arguments:
-    /// - **key**: A stream key, which must implement the `ToRedisArgs` trait.
-    ///
-    /// # Returns:
-    /// A [`RedsumerResult`] with the result of the operation.
-    /// If the stream exists, the function will return a success result.
-    /// If the stream does not exist, the function will return an error result.
-    /// If an error occurs, the function will return an error result.
-    fn verify_if_stream_exists(&mut self, key: K) -> RedsumerResult<()>;
-
-    /// Create a consumer group in a Redis stream.
-    ///
-    /// # Arguments:
-    /// - **key**: A stream key, which must implement the `ToRedisArgs` trait.
-    /// - **group**: A consumers group, which must implement the `ToRedisArgs` trait.
-    /// - **since_id**: The ID of the message to start consuming, which must implement the `ToRedisArgs` trait.
-    ///
-    /// # Returns:
-    /// A [`RedsumerResult`] with the result of the operation.
-    /// If the consumer group already exists, the function will return a success result with a `false` value.
-    /// If the consumer group does not exist, the function will create it and return a success result with a `true` value.
-    /// If an error occurs, the function will return an error result.
-    fn create_consumer_group<G, ID>(
-        &mut self,
-        key: K,
-        group: G,
-        since_id: ID,
-    ) -> RedsumerResult<bool>
-    where
-        G: ToRedisArgs,
-        ID: ToRedisArgs;
-
-    /// Read new messages from a stream.
-    ///
-    /// # Arguments:
-    /// - **key**: A stream key, which must implement the `ToRedisArgs` trait.
-    /// - **group**: A consumers group, which must implement the `ToRedisArgs` trait.
-    /// - **consumer**: A consumer name, which must implement the `ToRedisArgs` trait.
-    /// - **count**: The number of messages to read.
-    /// - **block**: The time to block waiting for new messages.
-    ///
-    /// # Returns:
-    /// A [`RedisResult`] with a vector of [`StreamId`]s.
-    /// If the operation is successful, the function will return a vector of [`StreamId`]s.
-    /// If an error occurs, the function will return an error result.
-    fn read_new_messages<G, N>(
-        &mut self,
-        key: &K,
-        group: &G,
-        consumer: &N,
-        count: usize,
-        block: usize,
-    ) -> RedisResult<Vec<StreamId>>
-    where
-        G: ToRedisArgs,
-        N: ToRedisArgs;
-
-    /// Read pending messages from a stream.
-    ///
-    /// # Arguments:
-    /// - **key**: A stream key, which must implement the `ToRedisArgs` trait.
-    /// - **group**: A consumers group, which must implement the `ToRedisArgs` trait.
-    /// - **consumer**: A consumer name, which must implement the `ToRedisArgs` trait.
-    /// - **latest_pending_message_id**: The ID of the latest pending message, which must implement the `ToRedisArgs` trait.
-    /// - **count**: The number of messages to read.
-    ///
-    /// # Returns:
-    /// A [`RedisResult`] with a tuple of a vector of [`StreamId`]s and the latest pending message ID.
-    /// If the operation is successful, the function will return a tuple with a vector of [`StreamId`]s and the latest pending message ID.
-    /// If an error occurs, the function will return an error result.
-    fn read_pending_messages<G, N, ID>(
-        &mut self,
-        key: &K,
-        group: &G,
-        consumer: &N,
-        latest_pending_message_id: ID,
-        count: usize,
-    ) -> RedisResult<(Vec<StreamId>, LatestPendingMessageId)>
-    where
-        G: ToRedisArgs,
-        N: ToRedisArgs,
-        ID: ToRedisArgs;
-
-    /// Claim pending messages from a stream.
-    ///
-    /// # Arguments:
-    /// - **key**: A stream key, which must implement the `ToRedisArgs` trait.
-    /// - **group**: A consumers group, which must implement the `ToRedisArgs` trait.
-    /// - **consumer**: A consumer name, which must implement the `ToRedisArgs` trait.
-    /// - **min_idle_time**: The minimum idle time in milliseconds.
-    /// - **next_id_to_claim**: The next ID to claim, which must implement the `ToRedisArgs` trait.
-    /// - **count**: The number of messages to claim.
-    ///
-    /// # Returns:
-    /// A [`RedisResult`] with a tuple of a vector of [`StreamId`]s and the next ID to claim.
-    /// If the operation is successful, the function will return a tuple with a vector of [`StreamId`]s and the next ID to claim.
-    /// If an error occurs, the function will return an error result.
-    fn claim_pending_messages<G, N, ID>(
-        &mut self,
-        key: &K,
-        group: &G,
-        consumer: &N,
-        min_idle_time: usize,
-        next_id_to_claim: ID,
-        count: usize,
-    ) -> RedisResult<(Vec<StreamId>, NextIdToClaim)>
-    where
-        G: ToRedisArgs,
-        N: ToRedisArgs,
-        ID: ToRedisArgs;
-
-    /// Verify if a message is still in the consumer pending list.
-    ///
-    /// # Arguments:
-    /// - **key**: A stream key, which must implement the `ToRedisArgs` trait.
-    /// - **group**: A consumers group, which must implement the `ToRedisArgs` trait.
-    /// - **consumer**: A consumer name, which must implement the `ToRedisArgs` trait.
-    /// - **id**: The ID of the message to verify, which must implement the `ToRedisArgs` trait.
-    ///
-    /// # Returns:
-    /// A [`RedsumerResult`] with a boolean value. If the message is still in the consumer pending list, the function will return `true`. If the message is not in the consumer pending list, the function will return `false`. If an error occurs, the function will return an error result.
-    fn is_still_mine<G, CN, ID>(
-        &mut self,
-        key: K,
-        group: G,
-        consumer: CN,
-        id: ID,
-    ) -> RedsumerResult<(
-        bool,
-        Option<LastDeliveredMilliseconds>,
-        Option<TotalTimesDelivered>,
-    )>
-    where
-        G: ToRedisArgs,
-        CN: ToRedisArgs,
-        ID: ToRedisArgs;
-
-    /// Acknowledge a message in a consumer group.
-    ///
-    /// # Arguments:
-    /// - **key**: A stream key, which must implement the `ToRedisArgs` trait.
-    /// - **group**: A consumers group, which must implement the `ToRedisArgs` trait.
-    /// - **id**: The ID of the message to acknowledge, which must implement the `ToRedisArgs` trait.
-    ///
-    /// # Returns:
-    /// A [`RedsumerResult`] with a boolean value. If the message was successfully acknowledged, the function will return `true`. If the message was not acknowledged, the function will return `false`. If an error occurs, the function will return an error result.
-    fn ack<G, ID>(&mut self, key: K, group: G, id: ID) -> RedsumerResult<bool>
-    where
-        G: ToRedisArgs,
-        ID: ToRedisArgs;
-}
-
-impl<C, K> ConsumerCommands<K> for C
+/// Produce a message to a Redis stream from a list of field/value pairs. To set the ID of the message, this function uses the value "*" to indicate that Redis should generate a new ID with the current timestamp.
+pub(crate) fn produce<C>(
+    conn: &mut C,
+    key: &str,
+    items: &[(String, Vec<u8>)],
+) -> RedisResult<String>
 where
     C: Commands,
-    K: ToRedisArgs + ToString,
 {
-    fn verify_if_stream_exists(&mut self, key: K) -> RedsumerResult<()>
-    where
-        K: ToRedisArgs,
-    {
-        verify_if_stream_exists(self, key)
+    match conn.xadd(key, "*", items) {
+        Ok(id) => {
+            debug!("Message produced successfully");
+            Ok(id)
+        }
+        Err(e) => {
+            error!("Error producing message: {:?}", e);
+            Err(e)
+        }
+    }
+}
+
+#[cfg(test)]
+mod test_produce {
+    use redis::{cmd, ErrorKind, RedisError, Value};
+    use redis_test::{MockCmd, MockRedisConnection};
+
+    use super::*;
+
+    #[test]
+    fn test_produce_ok() {
+        // Define the key:
+        let key: &str = "my-key";
+
+        // Define the items:
+        let items: Vec<(String, Vec<u8>)> = vec![("field".to_string(), b"value".to_vec())];
+
+        // Create a mock connection:
+        let mut conn: MockRedisConnection =
+            MockRedisConnection::new(vec![MockCmd::new::<_, Value>(
+                cmd("XADD").arg(key).arg("*").arg(&items),
+                Ok(Value::SimpleString("1-0".to_string())),
+            )]);
+
+        // Produce the message:
+        let result: RedisResult<String> = produce(&mut conn, key, &items);
+
+        // Verify the result:
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "1-0");
     }
 
-    fn create_consumer_group<G, ID>(
-        &mut self,
-        key: K,
-        group: G,
-        since_id: ID,
-    ) -> RedsumerResult<bool>
-    where
-        G: ToRedisArgs,
-        ID: ToRedisArgs,
-    {
-        create_consumer_group(self, key, group, since_id)
-    }
+    #[test]
+    fn test_produce_error() {
+        // Define the key:
+        let key: &str = "my-key";
 
-    fn read_new_messages<G, N>(
-        &mut self,
-        key: &K,
-        group: &G,
-        consumer: &N,
-        count: usize,
-        block: usize,
-    ) -> RedisResult<Vec<StreamId>>
-    where
-        G: ToRedisArgs,
-        N: ToRedisArgs,
-    {
-        read_new_messages(self, key, group, consumer, count, block)
-    }
+        // Define the items:
+        let items: Vec<(String, Vec<u8>)> = vec![("field".to_string(), b"value".to_vec())];
 
-    fn read_pending_messages<G, N, ID>(
-        &mut self,
-        key: &K,
-        group: &G,
-        consumer: &N,
-        latest_pending_message_id: ID,
-        count: usize,
-    ) -> RedisResult<(Vec<StreamId>, LatestPendingMessageId)>
-    where
-        G: ToRedisArgs,
-        N: ToRedisArgs,
-        ID: ToRedisArgs,
-    {
-        read_pending_messages(self, key, group, consumer, latest_pending_message_id, count)
-    }
+        // Create a mock connection:
+        let mut conn: MockRedisConnection =
+            MockRedisConnection::new(vec![MockCmd::new::<_, Value>(
+                cmd("XADD").arg(key).arg("*").arg(&items),
+                Err(RedisError::from((
+                    ErrorKind::ResponseError,
+                    "XADD Error",
+                    "XADD command failed".to_string(),
+                ))),
+            )]);
 
-    fn claim_pending_messages<G, N, ID>(
-        &mut self,
-        key: &K,
-        group: &G,
-        consumer: &N,
-        min_idle_time: usize,
-        next_id_to_claim: ID,
-        count: usize,
-    ) -> RedisResult<(Vec<StreamId>, NextIdToClaim)>
-    where
-        G: ToRedisArgs,
-        N: ToRedisArgs,
-        ID: ToRedisArgs,
-    {
-        claim_pending_messages(
-            self,
-            key,
-            group,
-            consumer,
-            min_idle_time,
-            next_id_to_claim,
-            count,
-        )
-    }
+        // Produce the message:
+        let result: RedisResult<String> = produce(&mut conn, key, &items);
 
-    fn is_still_mine<G, CN, ID>(
-        &mut self,
-        key: K,
-        group: G,
-        consumer: CN,
-        id: ID,
-    ) -> RedsumerResult<(
-        bool,
-        Option<LastDeliveredMilliseconds>,
-        Option<TotalTimesDelivered>,
-    )>
-    where
-        G: ToRedisArgs,
-        CN: ToRedisArgs,
-        ID: ToRedisArgs,
-    {
-        is_still_mine(self, key, group, consumer, id)
-    }
-
-    fn ack<G, ID>(&mut self, key: K, group: G, id: ID) -> RedsumerResult<bool>
-    where
-        G: ToRedisArgs,
-        ID: ToRedisArgs,
-    {
-        ack(self, key, group, id)
+        // Verify the result:
+        assert!(result.is_err());
     }
 }
 
@@ -577,7 +342,7 @@ mod test_create_consumer_group {
             )]);
 
         // Create the consumer group:
-        let result: RedsumerResult<bool> = conn.create_consumer_group(key, group, since_id);
+        let result: RedisResult<bool> = create_consumer_group(&mut conn, key, group, since_id);
 
         // Verify the result:
         assert!(result.is_ok());
@@ -606,7 +371,7 @@ mod test_create_consumer_group {
             )]);
 
         // Create the consumer group:
-        let result: RedsumerResult<bool> = conn.create_consumer_group(key, group, since_id);
+        let result: RedisResult<bool> = create_consumer_group(&mut conn, key, group, since_id);
 
         // Verify the result:
         assert!(result.is_ok());
@@ -632,7 +397,7 @@ mod test_create_consumer_group {
             )]);
 
         // Create the consumer group:
-        let result: RedsumerResult<bool> = conn.create_consumer_group(key, group, since_id);
+        let result: RedisResult<bool> = create_consumer_group(&mut conn, key, group, since_id);
 
         // Verify the result:
         assert!(result.is_err());
@@ -640,14 +405,14 @@ mod test_create_consumer_group {
 }
 
 #[cfg(test)]
-mod test_verify_if_stream_exists {
+mod test_stream_exists {
     use redis::{cmd, ErrorKind, RedisError};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
 
     #[test]
-    fn test_verify_if_stream_exists() {
+    fn test_stream_exists_true() {
         // Define the key:
         let key: &str = "my-key";
 
@@ -656,14 +421,15 @@ mod test_verify_if_stream_exists {
             MockRedisConnection::new(vec![MockCmd::new::<_, i64>(cmd("EXISTS").arg(key), Ok(1))]);
 
         // Verify if the stream exists:
-        let result: RedsumerResult<()> = conn.verify_if_stream_exists(key);
+        let result: RedisResult<bool> = stream_exists(&mut conn, key);
 
         // Verify the result:
         assert!(result.is_ok());
+        assert!(result.unwrap());
     }
 
     #[test]
-    fn test_verify_if_stream_does_not_exist() {
+    fn test_stream_does_not_exist() {
         // Define the key:
         let key: &str = "my-key";
 
@@ -672,14 +438,15 @@ mod test_verify_if_stream_exists {
             MockRedisConnection::new(vec![MockCmd::new::<_, i64>(cmd("EXISTS").arg(key), Ok(0))]);
 
         // Verify if the stream exists:
-        let result: RedsumerResult<()> = conn.verify_if_stream_exists(key);
+        let result: RedisResult<bool> = stream_exists(&mut conn, key);
 
         // Verify the result:
-        assert!(result.is_err());
+        assert!(result.is_ok());
+        assert!(!result.unwrap());
     }
 
     #[test]
-    fn test_verify_if_stream_exists_error() {
+    fn test_stream_exists_error() {
         // Define the key:
         let key: &str = "my-key";
 
@@ -690,7 +457,7 @@ mod test_verify_if_stream_exists {
         )]);
 
         // Verify if the stream exists:
-        let result: RedsumerResult<()> = conn.verify_if_stream_exists(key);
+        let result: RedisResult<bool> = stream_exists(&mut conn, key);
 
         // Verify the result:
         assert!(result.is_err());
@@ -699,7 +466,7 @@ mod test_verify_if_stream_exists {
 
 #[cfg(test)]
 mod test_read_new_messages {
-    use redis::{cmd, Value};
+    use redis::{cmd, ErrorKind, RedisError, Value};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
@@ -718,7 +485,7 @@ mod test_read_new_messages {
 
         // Read new messages:
         let result: RedisResult<Vec<StreamId>> =
-            conn.read_new_messages(&key, &group, &consumer, count, block);
+            read_new_messages(&mut conn, key, group, consumer, count, block);
 
         // Verify the result:
         assert!(result.is_ok());
@@ -739,7 +506,7 @@ mod test_read_new_messages {
             MockRedisConnection::new(vec![MockCmd::new::<_, Value>(
                 cmd("XREADGROUP")
                     .arg(
-                        &StreamReadOptions::default()
+                        StreamReadOptions::default()
                             .group(group, consumer)
                             .count(count)
                             .block(block),
@@ -772,8 +539,8 @@ mod test_read_new_messages {
             )]);
 
         // Consume messages:
-        let result: RedsumerResult<Vec<StreamId>> =
-            conn.read_new_messages(&key, &group, &consumer, count, block);
+        let result: RedisResult<Vec<StreamId>> =
+            read_new_messages(&mut conn, key, group, consumer, count, block);
 
         // Verify the result:
         assert!(result.is_ok());
@@ -800,7 +567,7 @@ mod test_read_new_messages {
             MockRedisConnection::new(vec![MockCmd::new::<_, Value>(
                 cmd("XREADGROUP")
                     .arg(
-                        &StreamReadOptions::default()
+                        StreamReadOptions::default()
                             .group(group, consumer)
                             .count(count)
                             .block(block),
@@ -815,8 +582,8 @@ mod test_read_new_messages {
             )]);
 
         // Consume messages:
-        let result: RedsumerResult<Vec<StreamId>> =
-            conn.read_new_messages(&key, &group, &consumer, count, block);
+        let result: RedisResult<Vec<StreamId>> =
+            read_new_messages(&mut conn, key, group, consumer, count, block);
 
         // Verify the result:
         assert!(result.is_err());
@@ -825,7 +592,7 @@ mod test_read_new_messages {
 
 #[cfg(test)]
 mod test_read_pending_messages {
-    use redis::{cmd, Value};
+    use redis::{cmd, ErrorKind, RedisError, Value};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
@@ -843,13 +610,19 @@ mod test_read_pending_messages {
         let mut conn: MockRedisConnection = MockRedisConnection::new(vec![]);
 
         // Read pending messages:
-        let result: RedsumerResult<(Vec<StreamId>, LatestPendingMessageId)> =
-            conn.read_pending_messages(&key, &group, &consumer, latest_pending_message_id, count);
+        let result: RedisResult<(Vec<StreamId>, String)> = read_pending_messages(
+            &mut conn,
+            key,
+            group,
+            consumer,
+            latest_pending_message_id,
+            count,
+        );
 
         // Verify the result:
         assert!(result.is_ok());
 
-        let (messages, next_id_to_claim): (Vec<StreamId>, LatestPendingMessageId) = result.unwrap();
+        let (messages, next_id_to_claim): (Vec<StreamId>, String) = result.unwrap();
         assert!(messages.is_empty());
         assert!(next_id_to_claim.eq(BEGINNING_OF_TIME_ID));
     }
@@ -868,7 +641,7 @@ mod test_read_pending_messages {
             MockRedisConnection::new(vec![MockCmd::new::<_, Value>(
                 cmd("XREADGROUP")
                     .arg(
-                        &StreamReadOptions::default()
+                        StreamReadOptions::default()
                             .group(group, consumer)
                             .count(count),
                     )
@@ -879,13 +652,19 @@ mod test_read_pending_messages {
             )]);
 
         // Read pending messages:
-        let result: RedsumerResult<(Vec<StreamId>, LatestPendingMessageId)> =
-            conn.read_pending_messages(&key, &group, &consumer, latest_pending_message_id, count);
+        let result: RedisResult<(Vec<StreamId>, String)> = read_pending_messages(
+            &mut conn,
+            key,
+            group,
+            consumer,
+            latest_pending_message_id,
+            count,
+        );
 
         // Verify the result:
         assert!(result.is_ok());
 
-        let (messages, next_id_to_claim): (Vec<StreamId>, LatestPendingMessageId) = result.unwrap();
+        let (messages, next_id_to_claim): (Vec<StreamId>, String) = result.unwrap();
         assert!(messages.len().eq(&0));
         assert!(next_id_to_claim.eq(BEGINNING_OF_TIME_ID));
     }
@@ -904,7 +683,7 @@ mod test_read_pending_messages {
             MockRedisConnection::new(vec![MockCmd::new::<_, Value>(
                 cmd("XREADGROUP")
                     .arg(
-                        &StreamReadOptions::default()
+                        StreamReadOptions::default()
                             .group(group, consumer)
                             .count(count),
                     )
@@ -936,13 +715,19 @@ mod test_read_pending_messages {
             )]);
 
         // Read pending messages:
-        let result: RedsumerResult<(Vec<StreamId>, LatestPendingMessageId)> =
-            conn.read_pending_messages(&key, &group, &consumer, latest_pending_message_id, count);
+        let result: RedisResult<(Vec<StreamId>, String)> = read_pending_messages(
+            &mut conn,
+            key,
+            group,
+            consumer,
+            latest_pending_message_id,
+            count,
+        );
 
         // Verify the result:
         assert!(result.is_ok());
 
-        let (messages, next_id_to_claim): (Vec<StreamId>, LatestPendingMessageId) = result.unwrap();
+        let (messages, next_id_to_claim): (Vec<StreamId>, String) = result.unwrap();
         assert!(messages.len().eq(&1));
 
         assert!(messages[0].id.eq("1-0"));
@@ -965,7 +750,7 @@ mod test_read_pending_messages {
             MockRedisConnection::new(vec![MockCmd::new::<_, Value>(
                 cmd("XREADGROUP")
                     .arg(
-                        &StreamReadOptions::default()
+                        StreamReadOptions::default()
                             .group(group, consumer)
                             .count(count),
                     )
@@ -979,8 +764,14 @@ mod test_read_pending_messages {
             )]);
 
         // Read pending messages:
-        let result: RedsumerResult<(Vec<StreamId>, LatestPendingMessageId)> =
-            conn.read_pending_messages(&key, &group, &consumer, latest_pending_message_id, count);
+        let result: RedisResult<(Vec<StreamId>, String)> = read_pending_messages(
+            &mut conn,
+            key,
+            group,
+            consumer,
+            latest_pending_message_id,
+            count,
+        );
 
         // Verify the result:
         assert!(result.is_err());
@@ -989,7 +780,7 @@ mod test_read_pending_messages {
 
 #[cfg(test)]
 mod test_claim_pending_messages {
-    use redis::{cmd, Value};
+    use redis::{cmd, ErrorKind, RedisError, Value};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
@@ -1008,10 +799,11 @@ mod test_claim_pending_messages {
         let mut conn: MockRedisConnection = MockRedisConnection::new(vec![]);
 
         // Claim pending messages:
-        let result: RedisResult<(Vec<StreamId>, NextIdToClaim)> = conn.claim_pending_messages(
-            &key,
-            &group,
-            &consumer,
+        let result: RedisResult<(Vec<StreamId>, String)> = claim_pending_messages(
+            &mut conn,
+            key,
+            group,
+            consumer,
             min_idle_time,
             next_id_to_claim,
             count,
@@ -1020,7 +812,7 @@ mod test_claim_pending_messages {
         // Verify the result:
         assert!(result.is_ok());
 
-        let (messages, next_id_to_claim): (Vec<StreamId>, NextIdToClaim) = result.unwrap();
+        let (messages, next_id_to_claim): (Vec<StreamId>, String) = result.unwrap();
         assert!(messages.is_empty());
         assert!(next_id_to_claim.eq(BEGINNING_OF_TIME_ID));
     }
@@ -1044,7 +836,7 @@ mod test_claim_pending_messages {
                     .arg(consumer)
                     .arg(min_idle_time)
                     .arg(next_id_to_claim)
-                    .arg(&StreamAutoClaimOptions::default().count(count)),
+                    .arg(StreamAutoClaimOptions::default().count(count)),
                 Ok(Value::Array(vec![
                     Value::SimpleString("0-0".to_string()),
                     Value::Array(vec![]),
@@ -1053,10 +845,11 @@ mod test_claim_pending_messages {
             )]);
 
         // Claim pending messages:
-        let result: RedisResult<(Vec<StreamId>, NextIdToClaim)> = conn.claim_pending_messages(
-            &key,
-            &group,
-            &consumer,
+        let result: RedisResult<(Vec<StreamId>, String)> = claim_pending_messages(
+            &mut conn,
+            key,
+            group,
+            consumer,
             min_idle_time,
             next_id_to_claim,
             count,
@@ -1065,7 +858,7 @@ mod test_claim_pending_messages {
         // Verify the result:
         assert!(result.is_ok());
 
-        let (messages, next_id_to_claim): (Vec<StreamId>, NextIdToClaim) = result.unwrap();
+        let (messages, next_id_to_claim): (Vec<StreamId>, String) = result.unwrap();
         assert!(messages.len().eq(&0));
         assert!(next_id_to_claim.eq(BEGINNING_OF_TIME_ID));
     }
@@ -1089,7 +882,7 @@ mod test_claim_pending_messages {
                     .arg(consumer)
                     .arg(min_idle_time)
                     .arg(next_id_to_claim)
-                    .arg(&StreamAutoClaimOptions::default().count(count)),
+                    .arg(StreamAutoClaimOptions::default().count(count)),
                 Ok(Value::Array(vec![
                     Value::SimpleString("1-0".to_string()),
                     Value::Array(vec![Value::Array(vec![
@@ -1101,10 +894,11 @@ mod test_claim_pending_messages {
             )]);
 
         // Claim pending messages:
-        let result: RedisResult<(Vec<StreamId>, NextIdToClaim)> = conn.claim_pending_messages(
-            &key,
-            &group,
-            &consumer,
+        let result: RedisResult<(Vec<StreamId>, String)> = claim_pending_messages(
+            &mut conn,
+            key,
+            group,
+            consumer,
             min_idle_time,
             next_id_to_claim,
             count,
@@ -1113,7 +907,7 @@ mod test_claim_pending_messages {
         // Verify the result:
         assert!(result.is_ok());
 
-        let (messages, next_id_to_claim): (Vec<StreamId>, NextIdToClaim) = result.unwrap();
+        let (messages, next_id_to_claim): (Vec<StreamId>, String) = result.unwrap();
         assert!(messages.len().eq(&1));
 
         assert!(messages[0].id.eq("1-0"));
@@ -1141,7 +935,7 @@ mod test_claim_pending_messages {
                     .arg(consumer)
                     .arg(min_idle_time)
                     .arg(next_id_to_claim)
-                    .arg(&StreamAutoClaimOptions::default().count(count)),
+                    .arg(StreamAutoClaimOptions::default().count(count)),
                 Err(RedisError::from((
                     ErrorKind::ResponseError,
                     "XAUTOCLAIM Error",
@@ -1149,10 +943,11 @@ mod test_claim_pending_messages {
             )]);
 
         // Claim pending messages:
-        let result: RedisResult<(Vec<StreamId>, NextIdToClaim)> = conn.claim_pending_messages(
-            &key,
-            &group,
-            &consumer,
+        let result: RedisResult<(Vec<StreamId>, String)> = claim_pending_messages(
+            &mut conn,
+            key,
+            group,
+            consumer,
             min_idle_time,
             next_id_to_claim,
             count,
@@ -1164,14 +959,14 @@ mod test_claim_pending_messages {
 }
 
 #[cfg(test)]
-mod test_if_is_still_mine {
-    use redis::{cmd, Value};
+mod test_pending_message_state {
+    use redis::{cmd, ErrorKind, RedisError, Value};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
 
     #[test]
-    fn test_is_still_mine_true() {
+    fn test_pending_message_state_found() {
         // Define the key, group, consumer, and id:
         let key = "my-key";
         let group = "my-group";
@@ -1197,30 +992,18 @@ mod test_if_is_still_mine {
             )]);
 
         // Verify if the message is still in the consumer pending list:
-        let result: RedsumerResult<(
-            bool,
-            Option<LastDeliveredMilliseconds>,
-            Option<TotalTimesDelivered>,
-        )> = conn.is_still_mine(key, group, consumer, id);
+        let result: RedisResult<Result<Option<(usize, usize)>, String>> =
+            pending_message_state(&mut conn, key, group, consumer, id);
 
         // Verify the result:
         assert!(result.is_ok());
 
-        let reply: (
-            bool,
-            Option<LastDeliveredMilliseconds>,
-            Option<TotalTimesDelivered>,
-        ) = result.unwrap();
-
-        assert!(reply.0);
-        assert!(reply.1.is_some());
-        assert!(reply.1.unwrap().eq(&196415));
-        assert!(reply.2.is_some());
-        assert!(reply.2.unwrap().eq(&5));
+        let state: Option<(usize, usize)> = result.unwrap().unwrap();
+        assert_eq!(state, Some((196415, 5)));
     }
 
     #[test]
-    fn test_is_still_mine_false() {
+    fn test_pending_message_state_not_found() {
         // Define the key, group, consumer, and id:
         let key = "my-key";
         let group = "my-group";
@@ -1241,28 +1024,16 @@ mod test_if_is_still_mine {
             )]);
 
         // Verify if the message is still in the consumer pending list:
-        let result: RedsumerResult<(
-            bool,
-            Option<LastDeliveredMilliseconds>,
-            Option<TotalTimesDelivered>,
-        )> = conn.is_still_mine(key, group, consumer, id);
+        let result: RedisResult<Result<Option<(usize, usize)>, String>> =
+            pending_message_state(&mut conn, key, group, consumer, id);
 
         // Verify the result:
         assert!(result.is_ok());
-
-        let reply: (
-            bool,
-            Option<LastDeliveredMilliseconds>,
-            Option<TotalTimesDelivered>,
-        ) = result.unwrap();
-
-        assert!(!reply.0);
-        assert!(reply.1.is_none());
-        assert!(reply.2.is_none());
+        assert_eq!(result.unwrap().unwrap(), None);
     }
 
     #[test]
-    fn test_is_still_mine_error() {
+    fn test_pending_message_state_error() {
         // Define the key, group, consumer, and id:
         let key = "my-key";
         let group = "my-group";
@@ -1285,11 +1056,8 @@ mod test_if_is_still_mine {
             )]);
 
         // Verify if the message is still in the consumer pending list:
-        let result: RedsumerResult<(
-            bool,
-            Option<LastDeliveredMilliseconds>,
-            Option<TotalTimesDelivered>,
-        )> = conn.is_still_mine(key, group, consumer, "1-0");
+        let result: RedisResult<Result<Option<(usize, usize)>, String>> =
+            pending_message_state(&mut conn, key, group, consumer, "1-0");
 
         // Verify the result:
         assert!(result.is_err());
@@ -1298,7 +1066,7 @@ mod test_if_is_still_mine {
 
 #[cfg(test)]
 mod test_ack {
-    use redis::cmd;
+    use redis::{cmd, ErrorKind, RedisError};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
@@ -1317,7 +1085,7 @@ mod test_ack {
         )]);
 
         // Acknowledge the message:
-        let result: RedsumerResult<bool> = conn.ack(key, group, id);
+        let result: RedisResult<bool> = ack(&mut conn, key, group, id);
 
         // Verify the result:
         assert!(result.is_ok());
@@ -1338,7 +1106,7 @@ mod test_ack {
         )]);
 
         // Acknowledge the message:
-        let result: RedsumerResult<bool> = conn.ack(key, group, id);
+        let result: RedisResult<bool> = ack(&mut conn, key, group, id);
 
         // Verify the result:
         assert!(result.is_ok());
@@ -1359,7 +1127,7 @@ mod test_ack {
         )]);
 
         // Acknowledge the message:
-        let result: RedsumerResult<bool> = conn.ack(key, group, id);
+        let result: RedisResult<bool> = ack(&mut conn, key, group, id);
 
         // Verify the result:
         assert!(result.is_err());
