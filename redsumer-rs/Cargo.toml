@@ -3,6 +3,7 @@ name = "redsumer"
 description = "Lightweight stream messaging library for Rust: produce and consume messages with a simple, flexible and reliable API"
 version = "0.6.0-alpha.1"
 edition = "2021"
+license = "MIT"
 license-file = "../LICENSE"
 readme = "../README.md"
 keywords = ["redis", "redis_streams"]

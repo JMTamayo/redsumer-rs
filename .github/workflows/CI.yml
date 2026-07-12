@@ -112,3 +112,4 @@ jobs:
         with:
           log-level: ${{ env.LOG_LEVEL }}
           command: check
+          rust-version: stable
