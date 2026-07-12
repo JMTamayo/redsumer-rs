@@ -1,7 +1,7 @@
 [package]
 name = "redsumer"
-description = "Lightweight implementation of Redis Streams for Rust"
-version = "0.5.4"
+description = "Lightweight stream messaging library for Rust: produce and consume messages with a simple, flexible and reliable API"
+version = "0.6.0-alpha.1"
 edition = "2021"
 license-file = "../LICENSE"
 readme = "../README.md"
@@ -9,7 +9,7 @@ keywords = ["redis", "redis_streams"]
 homepage = "https://github.com/enerBit/redsumer-rs"
 repository = "https://github.com/enerBit/redsumer-rs"
 documentation = "https://docs.rs/redsumer"
-categories = ["database-implementations"]
+categories = ["database", "api-bindings", "network-programming"]
 authors = ["Juan Manuel Tamayo <jmtamayog23@gmail.com>"]
 
 [dependencies]
@@ -18,6 +18,3 @@ tracing = { version = ">=0.1.40" }
 
 [dev-dependencies]
 redis-test = { version = "0.8.0" }
-tokio = { version = "1.43.0", features = ["full"] }
-time = { version = "0.3.37" }
-uuid = { version = "1.12.1", features = ["v4"] }

@@ -2,8 +2,9 @@ use std::fmt::Debug;
 
 use redis::{Client, ConnectionAddr, ConnectionInfo, ProtocolVersion, RedisConnectionInfo};
 
-#[allow(unused_imports)]
-use super::result::{RedsumerError, RedsumerResult};
+use crate::domain::connection::ConnectionConfig;
+use crate::domain::error::RedsumerError;
+use crate::domain::result::RedsumerResult;
 
 /// Communication protocol to be used by the client. It is an alias for [`ProtocolVersion`].
 pub type CommunicationProtocol = ProtocolVersion;
@@ -56,7 +57,7 @@ impl Debug for ClientCredentials {
     }
 }
 
-/// Define  the configuration parameters to create a [`Client`] instance.
+/// Define the configuration parameters to create a [`Client`] instance.
 ///
 /// Take a look at the following supported connection URL format to infer the client arguments:
 ///
@@ -135,6 +136,23 @@ impl ClientArgs {
     }
 }
 
+impl From<&ConnectionConfig> for ClientArgs {
+    fn from(connection: &ConnectionConfig) -> Self {
+        let credentials: Option<ClientCredentials> =
+            connection.get_credentials().as_ref().map(|credentials| {
+                ClientCredentials::new(credentials.get_user(), credentials.get_password())
+            });
+
+        ClientArgs::new(
+            credentials,
+            connection.get_host(),
+            connection.get_port(),
+            connection.get_db(),
+            CommunicationProtocol::RESP2,
+        )
+    }
+}
+
 /// To build a new instance of [`Client`].
 pub trait RedisClientBuilder {
     /// Build a new instance of [`Client`].
@@ -170,6 +188,7 @@ impl RedisClientBuilder for ClientArgs {
         };
 
         Client::open(ConnectionInfo { addr, redis })
+            .map_err(|e| RedsumerError::ConnectionError(format!("Error building client: {}", e)))
     }
 }
 

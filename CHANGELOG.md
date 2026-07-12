@@ -5,7 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## ✨ v0.5.4 [Unreleased]
+## ✨ v0.6.0-alpha.1 [Unreleased]
+
+### Added:
+
+- ⚡ Migrate the crate to a hexagonal architecture with three layers: `domain` (pure business types), `application` (use case services and ports) and `infrastructure` (Redis adapter). By [@JMTamayo](https://github.com/JMTamayo).
+- ⚡ Implement domain types `Message`, `MessageId` and `FieldValue` to replace `redis::streams::StreamId` in the public API. By [@JMTamayo](https://github.com/JMTamayo).
+- ⚡ Implement the `RedsumerError` enum as a domain-specific error type, replacing the alias to `RedisError`. By [@JMTamayo](https://github.com/JMTamayo).
+- ⚡ Implement the outbound ports `MessageProducer` and `MessageConsumer`, and the generic services `ProducerService` and `ConsumerService` with dependency injection, enabling testing with in-memory fakes through `from_port`. By [@JMTamayo](https://github.com/JMTamayo).
+- ⚡ Implement `RedisStreamsAdapter` as the only component that interacts with Redis. By [@JMTamayo](https://github.com/JMTamayo).
+- ⚡ Implement the value objects `StreamName`, `GroupName` and `ConsumerName` with non-empty validation, and `PendingMessageInfo` for pending message metadata. By [@JMTamayo](https://github.com/JMTamayo).
+- ⚡ Implement `ConnectionConfig` and `Credentials` as broker-neutral connection settings for the public API. By [@JMTamayo](https://github.com/JMTamayo).
+- ⚡ Implement `Producer` and `Consumer` as public facades that wire the default adapter internally, so users do not need to configure ports. By [@JMTamayo](https://github.com/JMTamayo).
+
+### Changed:
+
+- 🚀 `Producer` and `Consumer` are now concrete facades over the application services with the default adapter pre-wired. By [@JMTamayo](https://github.com/JMTamayo).
+- 🚀 `Producer::new` and `Consumer::new` receive `ConnectionConfig` instead of `ClientArgs`. By [@JMTamayo](https://github.com/JMTamayo).
+- 🚀 `produce_from_map`, `produce_from_items`, `consume` and `ack` are now synchronous functions: they were `async` without any await point. By [@JMTamayo](https://github.com/JMTamayo).
+- 🚀 `ConsumeMessagesReply::get_messages` now returns `Vec<Message>` instead of `Vec<StreamId>`. By [@JMTamayo](https://github.com/JMTamayo).
+- 🚀 `ProducerConfig` and `ConsumerConfig` are now immutable: the consume cursors were moved to an internal consumer session state. By [@JMTamayo](https://github.com/JMTamayo).
+- 🚀 Producer and consumer methods now require `&mut self` since the port is injected by ownership. By [@JMTamayo](https://github.com/JMTamayo).
+- 🚀 Reorganize the public modules: domain types are exposed under `types`, `MessageProducer` and `MessageConsumer` live in `producer` and `consumer` respectively, `results` exposes `RedsumerResult` and the new `errors` module exposes `RedsumerError`. By [@JMTamayo](https://github.com/JMTamayo).
+
+### Removed:
+
+- ❌ Remove the public `redsumer::client` module: `ClientArgs`, `ClientCredentials`, `CommunicationProtocol` and `RedisStreamsAdapter` are no longer part of the public API. Use `ConnectionConfig`, `Producer` and `Consumer` instead. By [@JMTamayo](https://github.com/JMTamayo).
+- ❌ Remove the public `redsumer::redis` module: `StreamId`, `Value`, `FromRedisValue`, `ToRedisArgs` and `from_redis_value` are no longer part of the public API. Use `Message` and `FieldValue` instead. By [@JMTamayo](https://github.com/JMTamayo).
+- ❌ Remove the deprecated function `IsStillMineReply::is_still_mine` in favor of `belongs_to_me`. By [@JMTamayo](https://github.com/JMTamayo).
+- ❌ Remove `tokio`, `time` and `uuid` from dev-dependencies: doc examples no longer require an async runtime. By [@JMTamayo](https://github.com/JMTamayo).
+
+## ✨ v0.5.4
 
 ### Changed:
 
