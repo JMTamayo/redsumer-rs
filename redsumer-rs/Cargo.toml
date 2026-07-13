@@ -1,8 +1,9 @@
 [package]
 name = "redsumer"
 description = "Lightweight stream messaging library for Rust: produce and consume messages with a simple, flexible and reliable API"
-version = "0.6.0-alpha.1"
-edition = "2021"
+version = "0.6.0-alpha.2"
+edition = "2024"
+rust-version = "1.88"
 license = "MIT"
 readme = "../README.md"
 keywords = ["redis", "redis_streams"]
@@ -13,8 +14,8 @@ categories = ["database", "api-bindings", "network-programming"]
 authors = ["Juan Manuel Tamayo <jmtamayog23@gmail.com>"]
 
 [dependencies]
-redis = { version = ">=0.28.0,<0.29.0", features = ["streams"] }
+redis = { version = "1.3", default-features = false, features = ["streams"] }
 tracing = { version = ">=0.1.40" }
 
 [dev-dependencies]
-redis-test = { version = "0.8.0" }
+redis-test = "1.0.4"
