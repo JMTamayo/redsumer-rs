@@ -147,8 +147,8 @@ pub mod producer;
 
 pub mod types {
     //! Core types: messages, identifiers, connection settings and stream names.
-    pub use super::domain::connection::{ConnectionConfig, Credentials};
-    pub use super::domain::message::{FieldValue, Message, MessageId, BEGINNING_OF_TIME_ID};
+    pub use super::domain::connection::{CommunicationProtocol, ConnectionConfig, Credentials};
+    pub use super::domain::message::{BEGINNING_OF_TIME_ID, FieldValue, Message, MessageId};
     pub use super::domain::pending::{
         LastDeliveredMilliseconds, PendingMessageInfo, TotalTimesDelivered,
     };
