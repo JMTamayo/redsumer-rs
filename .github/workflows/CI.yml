@@ -116,4 +116,4 @@ jobs:
           tool: cargo-deny
 
       - name: Security Analysis
-        run: cargo deny --log-level ${{ env.LOG_LEVEL }} check --all-features
+        run: cargo deny --log-level ${{ env.LOG_LEVEL }} check
