@@ -1,4 +1,4 @@
-//! Converts Redis stream entries into [`Message`](crate::domain::message::Message) and [`FieldValue`](crate::domain::message::FieldValue) instances.
+//! Converts Redis stream entries into [`Message`] and [`FieldValue`] instances.
 
 use std::collections::BTreeMap;
 
