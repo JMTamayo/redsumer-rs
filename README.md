@@ -25,12 +25,26 @@ A lightweight implementation of Redis Streams for Rust, allowing you to manage s
 
 The public API is organized by use case:
 
-- **`types`**: `Message`, `MessageId`, `FieldValue`, `ConnectionConfig`, stream and group names, and pending message metadata.
+- **`types`**: `Message`, `MessageId`, `FieldValue`, `ConnectionConfig`, `CommunicationProtocol`, stream and group names, and pending message metadata.
 - **`producer`**: `Producer` to publish messages; `ProducerConfig` for stream settings.
 - **`consumer`**: `Consumer` to read and acknowledge messages; `ConsumerConfig` for stream, group and read options.
 - **`errors`** / **`results`**: error and result types for all operations.
 
 `Producer` and `Consumer` connect to the message broker and are ready to use. For custom backends or unit tests, use `ProducerService::from_port` or `ConsumerService::from_port` with your own implementation of `MessageProducer` or `MessageConsumer`.
+
+## REQUIREMENTS
+
+- **Rust** 1.88 or later (edition 2024)
+- **Redis** 6+ with Streams support (tested against Redis 6+ / ValKey 7+ via `redis` 1.3)
+
+`ConnectionConfig` uses **RESP2** by default. To opt into RESP3:
+
+```rust
+use redsumer::types::{CommunicationProtocol, ConnectionConfig};
+
+let connection = ConnectionConfig::new(None, "localhost", 6379, 0)
+    .with_protocol(CommunicationProtocol::Resp3);
+```
 
 ## BASIC OPERATION
 

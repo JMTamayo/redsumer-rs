@@ -5,7 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## ✨ v0.6.0-alpha.1 [Unreleased]
+## ✨ v0.6.0-alpha.2 [Unreleased]
+
+### Added:
+
+- ⚡ Expose `CommunicationProtocol` (`Resp2`, `Resp3`) in `ConnectionConfig` via `types`, with `Resp2` as the default. By [@JMTamayo](https://github.com/JMTamayo).
+
+### Changed:
+
+- 🚀 Upgrade the `redis` dependency from `0.28` to `1.3`. By [@JMTamayo](https://github.com/JMTamayo).
+- 🚀 Upgrade `redis-test` from `0.8.0` to `1.0.4`. By [@JMTamayo](https://github.com/JMTamayo).
+- 🚀 Raise MSRV to **1.88** and adopt Rust **edition 2024**. By [@JMTamayo](https://github.com/JMTamayo).
+- 🚀 Adapt the Redis client builder to the `redis` 1.x connection info API. By [@JMTamayo](https://github.com/JMTamayo).
+
+## ✨ v0.6.0-alpha.1
 
 ### Added:
 
