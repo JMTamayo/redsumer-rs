@@ -813,8 +813,7 @@ mod test_consumer_service {
             match self.stream_exists {
                 true => Ok(()),
                 false => Err(RedsumerError::StreamNotFound(format!(
-                    "Stream {} does not exist",
-                    stream
+                    "Stream {stream} does not exist"
                 ))),
             }
         }

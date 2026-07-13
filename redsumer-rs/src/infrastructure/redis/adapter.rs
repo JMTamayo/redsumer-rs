@@ -44,7 +44,7 @@ impl RedisStreamsAdapter<Client> {
 
         let mut client: Client = args.build()?;
         client.ping::<String>().map_err(|e| {
-            RedsumerError::ConnectionError(format!("Error pinging Redis server: {}", e))
+            RedsumerError::ConnectionError(format!("Error pinging Redis server: {e}"))
         })?;
 
         info!("Redis Streams adapter created successfully and it is ready to be used");
@@ -80,7 +80,7 @@ where
 
         commands::produce(&mut self.connection, stream.as_str(), &items)
             .map(MessageId::from)
-            .map_err(|e| RedsumerError::ProduceError(format!("Error producing message: {}", e)))
+            .map_err(|e| RedsumerError::ProduceError(format!("Error producing message: {e}")))
     }
 }
 
@@ -92,12 +92,10 @@ where
         match commands::stream_exists(&mut self.connection, stream.as_str()) {
             Ok(true) => Ok(()),
             Ok(false) => Err(RedsumerError::StreamNotFound(format!(
-                "Stream {} does not exist",
-                stream
+                "Stream {stream} does not exist"
             ))),
             Err(e) => Err(RedsumerError::ConnectionError(format!(
-                "Error verifying if stream exists: {}",
-                e
+                "Error verifying if stream exists: {e}"
             ))),
         }
     }
@@ -115,7 +113,7 @@ where
             since_id.as_str(),
         )
         .map_err(|e| {
-            RedsumerError::ConsumerGroupError(format!("Error creating consumer group: {}", e))
+            RedsumerError::ConsumerGroupError(format!("Error creating consumer group: {e}"))
         })
     }
 
@@ -136,7 +134,7 @@ where
             block,
         )
         .map(|ids| mapping::messages_from_stream_ids(&ids))
-        .map_err(|e| RedsumerError::ConsumeError(format!("Error reading new messages: {}", e)))
+        .map_err(|e| RedsumerError::ConsumeError(format!("Error reading new messages: {e}")))
     }
 
     fn read_pending_messages(
@@ -161,7 +159,7 @@ where
                 MessageId::from(cursor),
             )
         })
-        .map_err(|e| RedsumerError::ConsumeError(format!("Error reading pending messages: {}", e)))
+        .map_err(|e| RedsumerError::ConsumeError(format!("Error reading pending messages: {e}")))
     }
 
     fn claim_pending_messages(
@@ -188,7 +186,7 @@ where
                 MessageId::from(cursor),
             )
         })
-        .map_err(|e| RedsumerError::ClaimError(format!("Error claiming pending messages: {}", e)))
+        .map_err(|e| RedsumerError::ClaimError(format!("Error claiming pending messages: {e}")))
     }
 
     fn get_pending_info(
@@ -206,7 +204,7 @@ where
             id.as_str(),
         )
         .map_err(|e| {
-            RedsumerError::ConsumeError(format!("Error getting pending message info: {}", e))
+            RedsumerError::ConsumeError(format!("Error getting pending message info: {e}"))
         })?;
 
         match state {
@@ -229,7 +227,7 @@ where
             group.as_str(),
             id.as_str(),
         )
-        .map_err(|e| RedsumerError::AckError(format!("Error acknowledging message: {}", e)))
+        .map_err(|e| RedsumerError::AckError(format!("Error acknowledging message: {e}")))
     }
 }
 

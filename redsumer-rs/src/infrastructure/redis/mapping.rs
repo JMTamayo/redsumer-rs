@@ -20,7 +20,7 @@ pub(crate) fn field_value_from_redis_value(value: &Value) -> FieldValue {
         Value::Boolean(b) => FieldValue::from(b.to_string()),
         Value::BigNumber(n) => FieldValue::from(String::from_utf8_lossy(n).into_owned()),
         Value::Okay => FieldValue::from("OK"),
-        other => FieldValue::from(format!("{:?}", other)),
+        other => FieldValue::from(format!("{other:?}")),
     }
 }
 

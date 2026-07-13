@@ -88,7 +88,7 @@ impl FieldValue {
     /// A [`RedsumerResult`] with the string slice. Otherwise, a [`RedsumerError::InvalidFieldValue`] is returned.
     pub fn as_str(&self) -> RedsumerResult<&str> {
         std::str::from_utf8(&self.bytes).map_err(|e| {
-            RedsumerError::InvalidFieldValue(format!("Field value is not valid UTF-8: {}", e))
+            RedsumerError::InvalidFieldValue(format!("Field value is not valid UTF-8: {e}"))
         })
     }
 
@@ -102,7 +102,7 @@ impl FieldValue {
         T::Err: Display,
     {
         self.as_str()?.parse::<T>().map_err(|e| {
-            RedsumerError::InvalidFieldValue(format!("Error parsing field value: {}", e))
+            RedsumerError::InvalidFieldValue(format!("Error parsing field value: {e}"))
         })
     }
 }

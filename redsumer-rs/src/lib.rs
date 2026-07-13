@@ -23,27 +23,25 @@
 //!
 //! use redsumer::prelude::*;
 //!
-//! fn main() {
-//!     let connection: ConnectionConfig = ConnectionConfig::new(None, "localhost", 6379, 0);
-//!     let stream_name: &str = "my-stream";
+//! let connection: ConnectionConfig = ConnectionConfig::new(None, "localhost", 6379, 0);
+//! let stream_name: &str = "my-stream";
 //!
-//!     let config: ProducerConfig = ProducerConfig::new(stream_name);
+//! let config: ProducerConfig = ProducerConfig::new(stream_name);
 //!
-//!     let mut producer: Producer = Producer::new(&connection, &config).unwrap_or_else(|error| {
-//!         panic!("Error creating a new producer instance: {:?}", error);
+//! let mut producer: Producer = Producer::new(&connection, &config).unwrap_or_else(|error| {
+//!     panic!("Error creating a new producer instance: {:?}", error);
+//! });
+//!
+//! let mut message: BTreeMap<&str, FieldValue> = BTreeMap::new();
+//! message.insert("id", FieldValue::from("bfd8ab4b-2c48-4d95-a344-0d5539e8a207"));
+//! message.insert("started_at", FieldValue::from("2024-01-01T00:00:00Z"));
+//!
+//! let reply: ProduceMessageReply = producer.produce_from_map(message)
+//!     .unwrap_or_else(|error| {
+//!         panic!("Error producing stream message from BTreeMap: {:?}", error.to_string());
 //!     });
 //!
-//!     let mut message: BTreeMap<&str, FieldValue> = BTreeMap::new();
-//!     message.insert("id", FieldValue::from("bfd8ab4b-2c48-4d95-a344-0d5539e8a207"));
-//!     message.insert("started_at", FieldValue::from("2024-01-01T00:00:00Z"));
-//!
-//!     let reply: ProduceMessageReply = producer.produce_from_map(message)
-//!         .unwrap_or_else(|error| {
-//!             panic!("Error producing stream message from BTreeMap: {:?}", error.to_string());
-//!         });
-//!
-//!     println!("Message produced with id: {:?}", reply.get_id());
-//! }
+//! println!("Message produced with id: {:?}", reply.get_id());
 //! ```
 //!
 //! Similar to the previous example, you can produce a message from a list of items using [produce_from_items](producer::ProducerService::produce_from_items). Field names must convert into [String] and values into [FieldValue](types::FieldValue), which is implemented for the most common primitive types.
@@ -55,65 +53,63 @@
 //! ```rust,no_run
 //! use redsumer::prelude::*;
 //!
-//! fn main() {
-//!     let connection: ConnectionConfig = ConnectionConfig::new(None, "localhost", 6379, 0);
-//!     let stream_name: &str = "my-stream";
-//!     let group_name: &str = "group-name";
-//!     let consumer_name: &str = "consumer";
-//!     let initial_stream_id: &str = "0-0";
-//!     let min_idle_time_milliseconds: usize = 1000;
-//!     let new_messages_count: usize = 3;
-//!     let pending_messages_count: usize = 2;
-//!     let claimed_messages_count: usize = 1;
-//!     let block: usize = 5;
+//! let connection: ConnectionConfig = ConnectionConfig::new(None, "localhost", 6379, 0);
+//! let stream_name: &str = "my-stream";
+//! let group_name: &str = "group-name";
+//! let consumer_name: &str = "consumer";
+//! let initial_stream_id: &str = "0-0";
+//! let min_idle_time_milliseconds: usize = 1000;
+//! let new_messages_count: usize = 3;
+//! let pending_messages_count: usize = 2;
+//! let claimed_messages_count: usize = 1;
+//! let block: usize = 5;
 //!
-//!     let config: ConsumerConfig = ConsumerConfig::new(
-//!         stream_name,
-//!         group_name,
-//!         consumer_name,
-//!         ReadNewMessagesOptions::new(
-//!             new_messages_count,
-//!             block
-//!         ),
-//!         ReadPendingMessagesOptions::new(
-//!             pending_messages_count
-//!         ),
-//!         ClaimMessagesOptions::new(
-//!             claimed_messages_count,
-//!             min_idle_time_milliseconds
-//!         ),
-//!     );
+//! let config: ConsumerConfig = ConsumerConfig::new(
+//!     stream_name,
+//!     group_name,
+//!     consumer_name,
+//!     ReadNewMessagesOptions::new(
+//!         new_messages_count,
+//!         block
+//!     ),
+//!     ReadPendingMessagesOptions::new(
+//!         pending_messages_count
+//!     ),
+//!     ClaimMessagesOptions::new(
+//!         claimed_messages_count,
+//!         min_idle_time_milliseconds
+//!     ),
+//! );
 //!
-//!     let mut consumer: Consumer = Consumer::new(
-//!         connection,
-//!         config,
-//!         Some(initial_stream_id.to_string()),
-//!     ).unwrap_or_else(|error| {
-//!         panic!("Error creating a new consumer instance: {:?}", error);
+//! let mut consumer: Consumer = Consumer::new(
+//!     connection,
+//!     config,
+//!     Some(initial_stream_id.to_string()),
+//! ).unwrap_or_else(|error| {
+//!     panic!("Error creating a new consumer instance: {:?}", error);
+//! });
+//!
+//! loop {
+//!     let consume_reply: ConsumeMessagesReply = consumer.consume().unwrap_or_else(|error| {
+//!         panic!("Error consuming messages from stream: {:?}", error);
 //!     });
 //!
-//!     loop {
-//!         let consume_reply: ConsumeMessagesReply = consumer.consume().unwrap_or_else(|error| {
-//!             panic!("Error consuming messages from stream: {:?}", error);
-//!         });
+//!     for message in consume_reply.get_messages().to_owned() {
+//!         if consumer.is_still_mine(message.get_id()).unwrap_or_else(|error| {
+//!             panic!(
+//!                 "Error checking if message is still in consumer pending list: {:?}", error
+//!             );
+//!         }).belongs_to_me() {
+//!             // Process message ...
+//!             println!("Processing message: {:?}", message);
+//!             // ...
 //!
-//!         for message in consume_reply.get_messages().to_owned() {
-//!             if consumer.is_still_mine(message.get_id()).unwrap_or_else(|error| {
-//!                 panic!(
-//!                     "Error checking if message is still in consumer pending list: {:?}", error
-//!                 );
-//!             }).belongs_to_me() {
-//!                 // Process message ...
-//!                 println!("Processing message: {:?}", message);
-//!                 // ...
+//!             let ack_reply: AckMessageReply = consumer.ack(message.get_id()).unwrap_or_else(|error| {
+//!                 panic!("Error acknowledging message: {:?}", error);
+//!             });
 //!
-//!                 let ack_reply: AckMessageReply = consumer.ack(message.get_id()).unwrap_or_else(|error| {
-//!                     panic!("Error acknowledging message: {:?}", error);
-//!                 });
-//!
-//!                 if ack_reply.was_acked() {
-//!                      println!("Message acknowledged: {:?}", message);
-//!                 }
+//!             if ack_reply.was_acked() {
+//!                  println!("Message acknowledged: {:?}", message);
 //!             }
 //!         }
 //!     }

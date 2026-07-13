@@ -8,8 +8,7 @@ fn validate_non_empty(name: &str, entity: &str) -> RedsumerResult<String> {
     let trimmed: &str = name.trim();
     if trimmed.is_empty() {
         return Err(RedsumerError::ConfigurationError(format!(
-            "{} must not be empty",
-            entity
+            "{entity} must not be empty"
         )));
     }
 

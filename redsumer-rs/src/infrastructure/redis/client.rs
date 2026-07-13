@@ -187,11 +187,11 @@ impl RedisClientBuilder for ClientArgs {
             ConnectionAddr::Tcp(self.get_host().to_owned(), self.get_port())
                 .into_connection_info()
                 .map_err(|e| {
-                    RedsumerError::ConnectionError(format!("Error building client: {}", e))
+                    RedsumerError::ConnectionError(format!("Error building client: {e}"))
                 })?
                 .set_redis_settings(redis_settings),
         )
-        .map_err(|e| RedsumerError::ConnectionError(format!("Error building client: {}", e)))
+        .map_err(|e| RedsumerError::ConnectionError(format!("Error building client: {e}")))
     }
 }
 
@@ -224,7 +224,7 @@ mod test_client_credentials {
 
         // Verify if the debug is correct:
         assert_eq!(
-            format!("{:?}", credentials),
+            format!("{credentials:?}"),
             "ClientCredentials { user: \"user\", password: \"****\" }"
         );
     }
@@ -316,7 +316,7 @@ mod test_client_args {
 
         // Verify if the debug is correct:
         assert_eq!(
-            format!("{:?}", args),
+            format!("{args:?}"),
             "ClientArgs { credentials: Some(ClientCredentials { user: \"user\", password: \"****\" }), host: \"localhost\", port: 6379, db: 1, protocol: Resp2 }"
         );
     }
