@@ -1,13 +1,19 @@
 use std::fmt::Debug;
 
-use redis::{Client, ConnectionAddr, ConnectionInfo, ProtocolVersion, RedisConnectionInfo};
+use redis::{Client, ConnectionAddr, IntoConnectionInfo, ProtocolVersion, RedisConnectionInfo};
 
-use crate::domain::connection::ConnectionConfig;
+use crate::domain::connection::{CommunicationProtocol, ConnectionConfig};
 use crate::domain::error::RedsumerError;
 use crate::domain::result::RedsumerResult;
 
-/// Communication protocol to be used by the client. It is an alias for [`ProtocolVersion`].
-pub type CommunicationProtocol = ProtocolVersion;
+impl From<CommunicationProtocol> for ProtocolVersion {
+    fn from(protocol: CommunicationProtocol) -> Self {
+        match protocol {
+            CommunicationProtocol::Resp2 => ProtocolVersion::RESP2,
+            CommunicationProtocol::Resp3 => ProtocolVersion::RESP3,
+        }
+    }
+}
 
 /// To hold credentials to authenticate in Redis.
 ///
@@ -148,7 +154,7 @@ impl From<&ConnectionConfig> for ClientArgs {
             connection.get_host(),
             connection.get_port(),
             connection.get_db(),
-            CommunicationProtocol::RESP2,
+            connection.get_protocol(),
         )
     }
 }
@@ -167,28 +173,25 @@ pub trait RedisClientBuilder {
 
 impl RedisClientBuilder for ClientArgs {
     fn build(&self) -> RedsumerResult<Client> {
-        let addr: ConnectionAddr =
-            ConnectionAddr::Tcp(String::from(self.get_host()), self.get_port());
+        let mut redis_settings = RedisConnectionInfo::default()
+            .set_db(self.get_db())
+            .set_protocol(self.get_protocol().into());
 
-        let username: Option<String> = self
-            .get_credentials()
-            .to_owned()
-            .map(|c| c.get_user().to_string());
+        if let Some(credentials) = self.get_credentials() {
+            redis_settings = redis_settings
+                .set_username(credentials.get_user())
+                .set_password(credentials.get_password());
+        }
 
-        let password: Option<String> = self
-            .get_credentials()
-            .to_owned()
-            .map(|c| c.get_password().to_string());
-
-        let redis: RedisConnectionInfo = RedisConnectionInfo {
-            db: self.get_db(),
-            username,
-            password,
-            protocol: self.get_protocol(),
-        };
-
-        Client::open(ConnectionInfo { addr, redis })
-            .map_err(|e| RedsumerError::ConnectionError(format!("Error building client: {}", e)))
+        Client::open(
+            ConnectionAddr::Tcp(self.get_host().to_owned(), self.get_port())
+                .into_connection_info()
+                .map_err(|e| {
+                    RedsumerError::ConnectionError(format!("Error building client: {}", e))
+                })?
+                .set_redis_settings(redis_settings),
+        )
+        .map_err(|e| RedsumerError::ConnectionError(format!("Error building client: {}", e)))
     }
 }
 
@@ -270,7 +273,7 @@ mod test_client_args {
         let db: i64 = 1;
 
         // Define the redis protocol version:
-        let protocol_version: CommunicationProtocol = CommunicationProtocol::RESP2;
+        let protocol_version: CommunicationProtocol = CommunicationProtocol::Resp2;
 
         // Create a new instance of ClientArgs with default port and db:
         let args: ClientArgs = ClientArgs::new(Some(credentials), host, port, db, protocol_version);
@@ -306,13 +309,16 @@ mod test_client_args {
         let db: i64 = 1;
 
         // Define the redis protocol version:
-        let protocol_version: CommunicationProtocol = CommunicationProtocol::RESP2;
+        let protocol_version: CommunicationProtocol = CommunicationProtocol::Resp2;
 
         // Create a new instance of ClientArgs with default port and db:
         let args: ClientArgs = ClientArgs::new(Some(credentials), host, port, db, protocol_version);
 
         // Verify if the debug is correct:
-        assert_eq!(format!("{:?}", args), "ClientArgs { credentials: Some(ClientCredentials { user: \"user\", password: \"****\" }), host: \"localhost\", port: 6379, db: 1, protocol: RESP2 }");
+        assert_eq!(
+            format!("{:?}", args),
+            "ClientArgs { credentials: Some(ClientCredentials { user: \"user\", password: \"****\" }), host: \"localhost\", port: 6379, db: 1, protocol: Resp2 }"
+        );
     }
 
     #[test]
@@ -334,7 +340,7 @@ mod test_client_args {
         let db: i64 = 1;
 
         // Define the redis protocol version:
-        let protocol_version: CommunicationProtocol = CommunicationProtocol::RESP2;
+        let protocol_version: CommunicationProtocol = CommunicationProtocol::Resp2;
 
         // Create a new instance of ClientArgs with default port and db:
         let args: ClientArgs = ClientArgs::new(Some(credentials), host, port, db, protocol_version);
@@ -370,7 +376,7 @@ mod test_redis_client_builder {
     fn test_redis_client_builder_ok_with_null_credentials() {
         // Create a new instance of ClientArgs with default port and db:
         let args: ClientArgs =
-            ClientArgs::new(None, "mylocalhost", 6377, 16, CommunicationProtocol::RESP2);
+            ClientArgs::new(None, "mylocalhost", 6377, 16, CommunicationProtocol::Resp2);
 
         // Build a new instance of Client:
         let client_result: RedsumerResult<Client> = args.build();
@@ -387,7 +393,7 @@ mod test_redis_client_builder {
             "mylocalhost",
             6377,
             16,
-            CommunicationProtocol::RESP2,
+            CommunicationProtocol::Resp2,
         );
 
         // Build a new instance of Client:

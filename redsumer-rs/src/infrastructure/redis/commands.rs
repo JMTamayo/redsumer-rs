@@ -1,11 +1,11 @@
 //! Low-level Redis Streams commands used internally to produce and consume messages.
 
 use redis::{
+    Commands, RedisResult, ToRedisArgs,
     streams::{
         StreamAutoClaimOptions, StreamAutoClaimReply, StreamId, StreamPendingCountReply,
         StreamReadOptions, StreamReadReply,
     },
-    Commands, RedisResult, ToRedisArgs,
 };
 use tracing::{debug, error, warn};
 
@@ -261,7 +261,7 @@ where
 
 #[cfg(test)]
 mod test_produce {
-    use redis::{cmd, ErrorKind, RedisError, Value};
+    use redis::{ErrorKind, RedisError, ServerErrorKind, Value, cmd};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
@@ -302,7 +302,7 @@ mod test_produce {
             MockRedisConnection::new(vec![MockCmd::new::<_, Value>(
                 cmd("XADD").arg(key).arg("*").arg(&items),
                 Err(RedisError::from((
-                    ErrorKind::ResponseError,
+                    ErrorKind::Server(ServerErrorKind::ResponseError),
                     "XADD Error",
                     "XADD command failed".to_string(),
                 ))),
@@ -318,7 +318,7 @@ mod test_produce {
 
 #[cfg(test)]
 mod test_create_consumer_group {
-    use redis::{cmd, ErrorKind, RedisError};
+    use redis::{ErrorKind, RedisError, ServerErrorKind, cmd};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
@@ -365,7 +365,7 @@ mod test_create_consumer_group {
                     .arg(group)
                     .arg(since_id),
                 Err(RedisError::from((
-                    ErrorKind::ResponseError,
+                    ErrorKind::Server(ServerErrorKind::ResponseError),
                     "BUSYGROUP Consumer Group name already exists",
                 ))),
             )]);
@@ -393,7 +393,10 @@ mod test_create_consumer_group {
                     .arg(key)
                     .arg(group)
                     .arg(since_id),
-                Err(RedisError::from((ErrorKind::ResponseError, "XGROUP Error"))),
+                Err(RedisError::from((
+                    ErrorKind::Server(ServerErrorKind::ResponseError),
+                    "XGROUP Error",
+                ))),
             )]);
 
         // Create the consumer group:
@@ -406,7 +409,7 @@ mod test_create_consumer_group {
 
 #[cfg(test)]
 mod test_stream_exists {
-    use redis::{cmd, ErrorKind, RedisError};
+    use redis::{ErrorKind, RedisError, ServerErrorKind, cmd};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
@@ -453,7 +456,10 @@ mod test_stream_exists {
         // Create a mock connection:
         let mut conn: MockRedisConnection = MockRedisConnection::new(vec![MockCmd::new::<_, i64>(
             cmd("EXISTS").arg(key),
-            Err(RedisError::from((ErrorKind::ResponseError, "EXISTS Error"))),
+            Err(RedisError::from((
+                ErrorKind::Server(ServerErrorKind::ResponseError),
+                "EXISTS Error",
+            ))),
         )]);
 
         // Verify if the stream exists:
@@ -466,7 +472,7 @@ mod test_stream_exists {
 
 #[cfg(test)]
 mod test_read_new_messages {
-    use redis::{cmd, ErrorKind, RedisError, Value};
+    use redis::{ErrorKind, RedisError, ServerErrorKind, Value, cmd};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
@@ -576,7 +582,7 @@ mod test_read_new_messages {
                     .arg(&[key])
                     .arg(&[">"]),
                 Err(RedisError::from((
-                    ErrorKind::ResponseError,
+                    ErrorKind::Server(ServerErrorKind::ResponseError),
                     "XREADGROUP Error",
                 ))),
             )]);
@@ -592,7 +598,7 @@ mod test_read_new_messages {
 
 #[cfg(test)]
 mod test_read_pending_messages {
-    use redis::{cmd, ErrorKind, RedisError, Value};
+    use redis::{ErrorKind, RedisError, ServerErrorKind, Value, cmd};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
@@ -758,7 +764,7 @@ mod test_read_pending_messages {
                     .arg(&[key])
                     .arg(&[latest_pending_message_id]),
                 Err(RedisError::from((
-                    ErrorKind::ResponseError,
+                    ErrorKind::Server(ServerErrorKind::ResponseError),
                     "XREADGROUP Error",
                 ))),
             )]);
@@ -780,7 +786,7 @@ mod test_read_pending_messages {
 
 #[cfg(test)]
 mod test_claim_pending_messages {
-    use redis::{cmd, ErrorKind, RedisError, Value};
+    use redis::{ErrorKind, RedisError, ServerErrorKind, Value, cmd};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
@@ -937,7 +943,7 @@ mod test_claim_pending_messages {
                     .arg(next_id_to_claim)
                     .arg(StreamAutoClaimOptions::default().count(count)),
                 Err(RedisError::from((
-                    ErrorKind::ResponseError,
+                    ErrorKind::Server(ServerErrorKind::ResponseError),
                     "XAUTOCLAIM Error",
                 ))),
             )]);
@@ -960,7 +966,7 @@ mod test_claim_pending_messages {
 
 #[cfg(test)]
 mod test_pending_message_state {
-    use redis::{cmd, ErrorKind, RedisError, Value};
+    use redis::{ErrorKind, RedisError, ServerErrorKind, Value, cmd};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
@@ -1050,7 +1056,7 @@ mod test_pending_message_state {
                     .arg(1)
                     .arg(consumer),
                 Err(RedisError::from((
-                    ErrorKind::ResponseError,
+                    ErrorKind::Server(ServerErrorKind::ResponseError),
                     "XPENDING Error",
                 ))),
             )]);
@@ -1066,7 +1072,7 @@ mod test_pending_message_state {
 
 #[cfg(test)]
 mod test_ack {
-    use redis::{cmd, ErrorKind, RedisError};
+    use redis::{ErrorKind, RedisError, ServerErrorKind, cmd};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
@@ -1123,7 +1129,10 @@ mod test_ack {
         // Create a mock connection:
         let mut conn: MockRedisConnection = MockRedisConnection::new(vec![MockCmd::new::<_, i64>(
             cmd("XACK").arg(key).arg(group).arg(&[id]),
-            Err(RedisError::from((ErrorKind::ResponseError, "XACK Error"))),
+            Err(RedisError::from((
+                ErrorKind::Server(ServerErrorKind::ResponseError),
+                "XACK Error",
+            ))),
         )]);
 
         // Acknowledge the message:

@@ -235,7 +235,7 @@ where
 
 #[cfg(test)]
 mod test_redis_streams_adapter {
-    use redis::{cmd, ErrorKind, RedisError, Value};
+    use redis::{ErrorKind, RedisError, ServerErrorKind, Value, cmd};
     use redis_test::{MockCmd, MockRedisConnection};
 
     use super::*;
@@ -280,7 +280,10 @@ mod test_redis_streams_adapter {
                 .arg("my-key")
                 .arg("*")
                 .arg(&[("field".to_string(), b"value".to_vec())]),
-            Err(RedisError::from((ErrorKind::ResponseError, "XADD Error"))),
+            Err(RedisError::from((
+                ErrorKind::Server(ServerErrorKind::ResponseError),
+                "XADD Error",
+            ))),
         )]);
 
         let mut adapter: RedisStreamsAdapter<MockRedisConnection> =
@@ -327,7 +330,10 @@ mod test_redis_streams_adapter {
     fn test_ensure_stream_exists_connection_error() {
         let conn: MockRedisConnection = MockRedisConnection::new(vec![MockCmd::new::<_, i64>(
             cmd("EXISTS").arg("my-key"),
-            Err(RedisError::from((ErrorKind::ResponseError, "EXISTS Error"))),
+            Err(RedisError::from((
+                ErrorKind::Server(ServerErrorKind::ResponseError),
+                "EXISTS Error",
+            ))),
         )]);
 
         let mut adapter: RedisStreamsAdapter<MockRedisConnection> =
@@ -367,7 +373,10 @@ mod test_redis_streams_adapter {
                 .arg("my-key")
                 .arg("my-group")
                 .arg("0-0"),
-            Err(RedisError::from((ErrorKind::ResponseError, "XGROUP Error"))),
+            Err(RedisError::from((
+                ErrorKind::Server(ServerErrorKind::ResponseError),
+                "XGROUP Error",
+            ))),
         )]);
 
         let mut adapter: RedisStreamsAdapter<MockRedisConnection> =
@@ -471,7 +480,10 @@ mod test_redis_streams_adapter {
     fn test_ack_error() {
         let conn: MockRedisConnection = MockRedisConnection::new(vec![MockCmd::new::<_, i64>(
             cmd("XACK").arg("my-key").arg("my-group").arg(&["1-0"]),
-            Err(RedisError::from((ErrorKind::ResponseError, "XACK Error"))),
+            Err(RedisError::from((
+                ErrorKind::Server(ServerErrorKind::ResponseError),
+                "XACK Error",
+            ))),
         )]);
 
         let mut adapter: RedisStreamsAdapter<MockRedisConnection> =

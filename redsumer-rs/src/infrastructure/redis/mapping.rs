@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use redis::{streams::StreamId, Value};
+use redis::{Value, streams::StreamId};
 
 use crate::domain::message::{FieldValue, Message, MessageId};
 
@@ -18,7 +18,7 @@ pub(crate) fn field_value_from_redis_value(value: &Value) -> FieldValue {
         Value::Int(i) => FieldValue::from(i.to_string()),
         Value::Double(d) => FieldValue::from(d.to_string()),
         Value::Boolean(b) => FieldValue::from(b.to_string()),
-        Value::BigNumber(n) => FieldValue::from(n.to_string()),
+        Value::BigNumber(n) => FieldValue::from(String::from_utf8_lossy(n).into_owned()),
         Value::Okay => FieldValue::from("OK"),
         other => FieldValue::from(format!("{:?}", other)),
     }
@@ -74,9 +74,11 @@ mod test_field_value_from_redis_value {
                 .unwrap(),
             1.5
         );
-        assert!(field_value_from_redis_value(&Value::Boolean(true))
-            .parse::<bool>()
-            .unwrap());
+        assert!(
+            field_value_from_redis_value(&Value::Boolean(true))
+                .parse::<bool>()
+                .unwrap()
+        );
         assert_eq!(
             field_value_from_redis_value(&Value::Okay).as_str().unwrap(),
             "OK"
