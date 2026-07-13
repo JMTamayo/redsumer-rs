@@ -15,7 +15,7 @@ use super::mapping;
 
 /// Connects to Redis Streams and implements [`MessageProducer`] and [`MessageConsumer`].
 ///
-/// It sends produce and consume operations to the Redis server and converts responses into [`Message`](crate::domain::message::Message), [`MessageId`](crate::domain::message::MessageId) and related types.
+/// It sends produce and consume operations to the Redis server and converts responses into [`Message`], [`MessageId`] and related types.
 #[derive(Debug, Clone)]
 pub struct RedisStreamsAdapter<C = Client>
 where

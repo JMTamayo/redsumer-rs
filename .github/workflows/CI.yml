@@ -11,7 +11,7 @@ on:
     - cron: "0 5 * * 0"
 
 env:
-  LOG_LEVEL: debug
+  LOG_LEVEL: warn
   CARGO_TERM_COLOR: always
   MIN_LINE_COVERAGE_TARGET: 80
 
@@ -20,13 +20,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Fetch Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: stable
           cache: false
@@ -53,7 +53,7 @@ jobs:
     needs: Project-Config
     steps:
       - name: Fetch Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -69,7 +69,7 @@ jobs:
     needs: Project-Config
     steps:
       - name: Fetch Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -90,7 +90,7 @@ jobs:
     needs: Build
     steps:
       - name: Fetch Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup cargo-llvm-cov
         uses: taiki-e/install-action@v2.33.22
@@ -105,7 +105,7 @@ jobs:
     needs: Build
     steps:
       - name: Fetch Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1

@@ -4,7 +4,6 @@ description = "Lightweight stream messaging library for Rust: produce and consum
 version = "0.6.0-alpha.1"
 edition = "2021"
 license = "MIT"
-license-file = "../LICENSE"
 readme = "../README.md"
 keywords = ["redis", "redis_streams"]
 homepage = "https://github.com/enerBit/redsumer-rs"
