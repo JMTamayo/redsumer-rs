@@ -186,9 +186,7 @@ impl RedisClientBuilder for ClientArgs {
         Client::open(
             ConnectionAddr::Tcp(self.get_host().to_owned(), self.get_port())
                 .into_connection_info()
-                .map_err(|e| {
-                    RedsumerError::ConnectionError(format!("Error building client: {e}"))
-                })?
+                .map_err(|e| RedsumerError::ConnectionError(format!("Error building client: {e}")))?
                 .set_redis_settings(redis_settings),
         )
         .map_err(|e| RedsumerError::ConnectionError(format!("Error building client: {e}")))
